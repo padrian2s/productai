@@ -12,6 +12,7 @@ AI-powered Product Management Service with Plan Mode, PRD Generation, and intera
 - **Mindmap** — interactive D3.js visualization of your project hierarchy (Projects > Plans > PRDs)
 - **Version History** — full snapshot-based versioning for every entity change
 - **Autocomplete** — full English dictionary with frequency-ranked suggestions and PM vocabulary boost
+- **Analytics** — PRD complexity ranking with stacked bar charts showing per-field text size
 - **Dashboard** — filterable overview with toggle visibility for Projects/Plans/PRDs and search
 
 ## Tech Stack
@@ -80,6 +81,7 @@ productai/
 |--------|------|-------------|
 | GET | `/` | Dashboard |
 | GET | `/mindmap` | Interactive mindmap |
+| GET | `/analytics` | PRD complexity charts |
 | GET | `/projects/{id}` | Project detail |
 | GET | `/plans/{id}` | Plan detail |
 | GET | `/plans/{id}/chat` | Plan AI chat |
@@ -92,5 +94,6 @@ productai/
 | POST | `/api/ai/plan/{id}/chat` | Stream plan conversation |
 | POST | `/api/ai/prd/generate` | Stream PRD generation |
 | GET | `/api/mindmap/data` | Mindmap tree JSON |
+| GET | `/api/analytics/prd-complexity` | PRD complexity data |
 | POST | `/api/autocomplete/words` | Word suggestions |
 | GET | `/admin` | Settings page |
