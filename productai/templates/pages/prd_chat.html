@@ -7,9 +7,9 @@
     <div class="border-b border-gray-200 bg-white px-6 py-4 flex items-center justify-between shrink-0">
         <div>
             <div class="text-sm text-gray-500">
-                <a href="/" class="hover:text-brand-600">Dashboard</a>
+                <a href="{{ base_path }}/" class="hover:text-brand-600">Dashboard</a>
                 <span class="mx-1">/</span>
-                <a href="/prds/{{ prd.id }}" class="hover:text-brand-600">{{ prd.title }}</a>
+                <a href="{{ base_path }}/prds/{{ prd.id }}" class="hover:text-brand-600">{{ prd.title }}</a>
                 <span class="mx-1">/</span>
                 <span class="text-gray-900">AI Refinement</span>
             </div>
@@ -18,7 +18,7 @@
                 PRD Refinement Mode
             </h1>
         </div>
-        <a href="/prds/{{ prd.id }}" class="text-sm text-gray-500 hover:text-gray-700">Back to PRD</a>
+        <a href="{{ base_path }}/prds/{{ prd.id }}" class="text-sm text-gray-500 hover:text-gray-700">Back to PRD</a>
     </div>
 
     <!-- Chat messages -->
@@ -121,7 +121,7 @@ chatForm.addEventListener('submit', async (e) => {
     let aiDiv = null;
     let fullText = '';
 
-    streamAI('/api/ai/prd/{{ prd.id }}/chat', formData,
+    streamAI(BASE_PATH + '/api/ai/prd/{{ prd.id }}/chat', formData,
         (token) => {
             if (!aiDiv) {
                 typingIndicator.classList.add('hidden');

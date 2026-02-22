@@ -1,6 +1,7 @@
 """ProductAI — AI-powered Product Management Service."""
 
 import asyncio
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -9,6 +10,8 @@ from pathlib import Path
 from .db.schema import init_db
 from .routes.pages import router as pages_router
 from .routes.api import router as api_router
+
+BASE_PATH = os.environ.get("BASE_PATH", "").rstrip("/")
 
 
 @asynccontextmanager
@@ -20,6 +23,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="ProductAI",
     description="AI-powered Product Management Service",
+    root_path=BASE_PATH,
     lifespan=lifespan,
 )
 

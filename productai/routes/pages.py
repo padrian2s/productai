@@ -8,8 +8,11 @@ from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from ..db import models
 
+BASE_PATH = os.environ.get("BASE_PATH", "").rstrip("/")
+
 router = APIRouter()
 templates = Jinja2Templates(directory=Path(__file__).parent.parent / "templates")
+templates.env.globals["base_path"] = BASE_PATH
 
 
 @router.get("/", response_class=HTMLResponse)

@@ -349,7 +349,7 @@
         <!-- Sidebar -->
         <nav class="w-64 bg-brand-900 text-white flex flex-col shrink-0">
             <div class="p-5 border-b border-white/10">
-                <a href="/" class="flex items-center gap-2 text-lg font-semibold tracking-tight">
+                <a href="{{ base_path }}/" class="flex items-center gap-2 text-lg font-semibold tracking-tight">
                     <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                     </svg>
@@ -357,7 +357,7 @@
                 </a>
             </div>
             <div class="flex-1 p-4 space-y-0.5">
-                <a href="/" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium">
+                <a href="{{ base_path }}/" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
                         <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
@@ -367,19 +367,19 @@
                 <div class="pt-3 pb-1 px-3">
                     <span class="text-[10px] font-semibold uppercase tracking-widest text-white/30">Hierarchy</span>
                 </div>
-                <a href="/projects/new" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium">
+                <a href="{{ base_path }}/projects/new" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
                     </svg>
                     New Project
                 </a>
-                <a href="/plans/new" class="flex items-center gap-3 pl-7 pr-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium text-white/70">
+                <a href="{{ base_path }}/plans/new" class="flex items-center gap-3 pl-7 pr-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium text-white/70">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                     </svg>
                     New Plan
                 </a>
-                <a href="/prds/new" class="flex items-center gap-3 pl-11 pr-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium text-white/50">
+                <a href="{{ base_path }}/prds/new" class="flex items-center gap-3 pl-11 pr-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium text-white/50">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
                     </svg>
@@ -387,7 +387,7 @@
                 </a>
             </div>
             <div class="p-4 border-t border-white/10 space-y-1">
-                <a href="/admin" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium">
+                <a href="{{ base_path }}/admin" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
                         <circle cx="12" cy="12" r="3"/>
@@ -405,6 +405,8 @@
     </div>
 
     <script>
+    const BASE_PATH = '{{ base_path }}';
+
     // Markdown rendering utility
     function renderMarkdown(text) {
         if (typeof marked !== 'undefined') {
@@ -477,7 +479,7 @@
             const cached = cache.get(key);
             if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
             try {
-                const res = await fetch('/api/autocomplete/words', {
+                const res = await fetch(BASE_PATH + '/api/autocomplete/words', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ prefix, context, limit: 8 })
@@ -799,7 +801,7 @@
                 if (instruction) formData.append('instruction', instruction);
 
                 let fullText = '';
-                streamAI('/api/ai/enhance', formData,
+                streamAI(BASE_PATH + '/api/ai/enhance', formData,
                     (token) => {
                         fullText += token;
                         preview.textContent = fullText;
@@ -970,11 +972,11 @@
 
             let url;
             if (hasSelection) {
-                url = '/api/ai/enhance-selection';
+                url = BASE_PATH + '/api/ai/enhance-selection';
                 formData.append('full_text', fullText);
                 formData.append('selected_text', selContent);
             } else {
-                url = '/api/ai/enhance';
+                url = BASE_PATH + '/api/ai/enhance';
                 formData.append('text', fullText);
             }
 

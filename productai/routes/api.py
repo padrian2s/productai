@@ -1,11 +1,14 @@
 """API routes — data operations and AI streaming."""
 
 import json
+import os
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from ..db import models
 from ..ai import service as ai_service
 from ..ai import autocomplete as ac
+
+BASE_PATH = os.environ.get("BASE_PATH", "").rstrip("/")
 
 router = APIRouter(prefix="/api")
 
@@ -18,7 +21,7 @@ async def create_project(request: Request):
     title = form.get("title", "").strip()
     description = form.get("description", "").strip()
     if not title:
-        return RedirectResponse("/", status_code=303)
+        return RedirectResponse(f"{BASE_PATH}/", status_code=303)
     project_id = await models.create_project(title, description)
     # Apply optional fields from create form
     fields = {}
@@ -28,7 +31,7 @@ async def create_project(request: Request):
             fields[key] = val
     if fields:
         await models.update_project(project_id, **fields)
-    return RedirectResponse(f"/projects/{project_id}", status_code=303)
+    return RedirectResponse(f"{BASE_PATH}/projects/{project_id}", status_code=303)
 
 
 @router.post("/projects/{project_id}")
@@ -36,13 +39,13 @@ async def update_project(project_id: int, request: Request):
     form = await request.form()
     fields = {k: v for k, v in form.items() if v}
     await models.update_project(project_id, **fields)
-    return RedirectResponse(f"/projects/{project_id}", status_code=303)
+    return RedirectResponse(f"{BASE_PATH}/projects/{project_id}", status_code=303)
 
 
 @router.post("/projects/{project_id}/delete")
 async def delete_project(project_id: int):
     await models.delete_project(project_id)
-    return RedirectResponse("/", status_code=303)
+    return RedirectResponse(f"{BASE_PATH}/", status_code=303)
 
 
 # ── Plans CRUD ─────────────────────────────────────────
@@ -50,7 +53,7 @@ async def delete_project(project_id: int):
 @router.post("/plans")
 async def create_plan(title: str = Form(...), description: str = Form("")):
     plan_id = await models.create_plan(title, description)
-    return RedirectResponse(f"/plans/{plan_id}", status_code=303)
+    return RedirectResponse(f"{BASE_PATH}/plans/{plan_id}", status_code=303)
 
 
 @router.post("/plans/{plan_id}")
@@ -58,13 +61,13 @@ async def update_plan(plan_id: int, request: Request):
     form = await request.form()
     fields = {k: v for k, v in form.items() if v}
     await models.update_plan(plan_id, **fields)
-    return RedirectResponse(f"/plans/{plan_id}", status_code=303)
+    return RedirectResponse(f"{BASE_PATH}/plans/{plan_id}", status_code=303)
 
 
 @router.post("/plans/{plan_id}/delete")
 async def delete_plan(plan_id: int):
     await models.delete_plan(plan_id)
-    return RedirectResponse("/", status_code=303)
+    return RedirectResponse(f"{BASE_PATH}/", status_code=303)
 
 
 # ── PRDs CRUD ──────────────────────────────────────────
@@ -76,7 +79,7 @@ async def create_prd(
 ):
     pid = int(plan_id) if plan_id else None
     prd_id = await models.create_prd(title, pid)
-    return RedirectResponse(f"/prds/{prd_id}/edit", status_code=303)
+    return RedirectResponse(f"{BASE_PATH}/prds/{prd_id}/edit", status_code=303)
 
 
 @router.post("/prds/{prd_id}")
@@ -84,14 +87,14 @@ async def update_prd(prd_id: int, request: Request):
     form = await request.form()
     fields = {k: v for k, v in form.items() if v}
     await models.update_prd(prd_id, **fields)
-    referer = request.headers.get("referer", f"/prds/{prd_id}")
+    referer = request.headers.get("referer", f"{BASE_PATH}/prds/{prd_id}")
     return RedirectResponse(referer, status_code=303)
 
 
 @router.post("/prds/{prd_id}/delete")
 async def delete_prd(prd_id: int):
     await models.delete_prd(prd_id)
-    return RedirectResponse("/", status_code=303)
+    return RedirectResponse(f"{BASE_PATH}/", status_code=303)
 
 
 # ── Admin Settings ─────────────────────────────────────
@@ -108,7 +111,7 @@ async def update_settings(request: Request):
     if api_key:
         await models.update_setting("anthropic_api_key", api_key)
         ai_service.invalidate_api_key_cache()
-    return RedirectResponse("/admin", status_code=303)
+    return RedirectResponse(f"{BASE_PATH}/admin", status_code=303)
 
 
 # ── Autocomplete ───────────────────────────────────────
