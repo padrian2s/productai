@@ -1,0 +1,15 @@
+[project]
+name = "productai"
+version = "0.1.0"
+description = "AI-powered Product Management Service with Plan Mode and PRD Generation"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aiosqlite>=0.22.1",
+    "anthropic>=0.83.0",
+    "fastapi>=0.129.2",
+    "jinja2>=3.1.6",
+    "markdown>=3.10.2",
+    "python-multipart>=0.0.22",
+    "uvicorn>=0.41.0",
+]

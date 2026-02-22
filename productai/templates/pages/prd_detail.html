@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}{{ prd.title }} — ProductAI{% endblock %}
+
+{% block content %}
+<div class="p-8 max-w-4xl mx-auto">
+    <nav class="text-sm text-gray-500 mb-6">
+        <a href="/" class="hover:text-brand-600">Dashboard</a>
+        <span class="mx-2">/</span>
+        {% if plan %}
+        <a href="/plans/{{ plan.id }}" class="hover:text-brand-600">{{ plan.title }}</a>
+        <span class="mx-2">/</span>
+        {% endif %}
+        <span class="text-gray-900">{{ prd.title }}</span>
+    </nav>
+
+    <!-- PRD header -->
+    <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+        <div class="flex items-start justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">{{ prd.title }}</h1>
+                {% if prd.overview %}
+                <div class="prose text-gray-500 mt-2 md-render">{{ prd.overview }}</div>
+                {% endif %}
+            </div>
+            <div class="flex items-center gap-2">
+                {% if current_version > 0 %}
+                <a href="/prds/{{ prd.id }}/versions" class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-brand-50 text-brand-700 border border-brand-200 hover:bg-brand-100 transition-colors" title="View version history">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    v{{ current_version }}
+                </a>
+                {% endif %}
+                <span class="inline-flex px-3 py-1 text-sm font-medium rounded-full
+                    {% if prd.status == 'review' %}bg-amber-100 text-amber-700
+                    {% elif prd.status == 'approved' %}bg-emerald-100 text-emerald-700
+                    {% elif prd.status == 'archived' %}bg-gray-100 text-gray-500
+                    {% else %}bg-blue-100 text-blue-700{% endif %}">
+                    {{ prd.status }}
+                </span>
+            </div>
+        </div>
+
+        <div class="flex gap-3 mt-5">
+            <a href="/prds/{{ prd.id }}/chat" class="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                </svg>
+                Refine with AI
+            </a>
+            <a href="/prds/{{ prd.id }}/edit" class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                Edit
+            </a>
+            <a href="/prds/{{ prd.id }}/versions" class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                History
+            </a>
+            <form action="/api/prds/{{ prd.id }}/delete" method="post" onsubmit="return confirm('Delete this PRD?')">
+                <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                    Delete
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- PRD sections -->
+    {% if prd.problem_statement %}
+    <div class="bg-white rounded-xl border border-gray-200 p-6 mb-4">
+        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Problem Statement</h2>
+        <div class="prose text-gray-700 md-render">{{ prd.problem_statement }}</div>
+    </div>
+    {% endif %}
+
+    {% if prd.proposed_solution %}
+    <div class="bg-white rounded-xl border border-gray-200 p-6 mb-4">
+        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Proposed Solution</h2>
+        <div class="prose text-gray-700 md-render">{{ prd.proposed_solution }}</div>
+    </div>
+    {% endif %}
+
+    {% if prd.content %}
+    <div class="bg-white rounded-xl border border-gray-200 p-6 mb-4">
+        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Full Document</h2>
+        <div class="prose text-gray-700 md-render">{{ prd.content }}</div>
+    </div>
+    {% endif %}
+
+    {% if prd.timeline %}
+    <div class="bg-white rounded-xl border border-gray-200 p-6 mb-4">
+        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Timeline</h2>
+        <div class="prose text-gray-700 md-render">{{ prd.timeline }}</div>
+    </div>
+    {% endif %}
+
+    <div class="text-xs text-gray-400 mt-4">
+        Created {{ prd.created_at }} | Last updated {{ prd.updated_at }}
+    </div>
+</div>
+{% endblock %}
+

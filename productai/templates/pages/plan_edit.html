@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}{% if plan %}Edit Plan — {{ plan.title }}{% else %}New Plan{% endif %} — ProductAI{% endblock %}
+
+{% macro enhance_icon(field_label) %}
+<div class="enhance-popover">
+    <button type="button" class="enhance-trigger" data-field="{{ field_label }}" title="Enhance with AI — hover to activate">
+        <svg class="enhance-progress-ring" viewBox="0 0 36 36">
+            <circle class="enhance-ring-bg" cx="18" cy="18" r="16"/>
+            <circle class="enhance-ring-fill" cx="18" cy="18" r="16"
+                transform="rotate(-90 18 18)"/>
+        </svg>
+        <svg class="enhance-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+    </button>
+</div>
+{% endmacro %}
+
+{% macro enhance_footer() %}
+<div class="enhance-instruction">
+    <div class="enhance-level-chips">
+        <button type="button" data-level="light" title="Light: grammar &amp; clarity">L</button>
+        <button type="button" data-level="medium" title="Medium: rewrite for impact" class="active">M</button>
+        <button type="button" data-level="heavy" title="Heavy: expand &amp; enrich">H</button>
+    </div>
+    <input type="text" placeholder="Add instructions… Enter to enhance" autocomplete="off">
+</div>
+<span class="enhance-status"><span class="spinner"></span> Enhancing...</span>
+<div class="enhance-preview"></div>
+<div class="enhance-preview-actions">
+    <button type="button" class="enhance-accept">Accept</button>
+    <button type="button" class="enhance-discard">Discard</button>
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="p-8 max-w-3xl mx-auto">
+    <nav class="text-sm text-gray-500 mb-6">
+        <a href="/" class="hover:text-brand-600">Dashboard</a>
+        <span class="mx-2">/</span>
+        <span class="text-gray-900">{% if plan %}Edit Plan{% else %}New Plan{% endif %}</span>
+    </nav>
+
+    <div class="flex items-center gap-3 mb-6">
+        <h1 class="text-2xl font-bold">{% if plan %}Edit Plan{% else %}Create New Plan{% endif %}</h1>
+        {% if plan and current_version is defined and current_version > 0 %}
+        <a href="/plans/{{ plan.id }}/versions" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-brand-50 text-brand-700 border border-brand-200 hover:bg-brand-100 transition-colors" title="View version history">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            v{{ current_version }}
+        </a>
+        {% endif %}
+    </div>
+
+    <form action="{% if plan %}/api/plans/{{ plan.id }}{% else %}/api/plans{% endif %}" method="post" class="space-y-6">
+        {% if projects is defined and projects %}
+        <div class="enhance-field-row">
+            <div class="enhance-spacer"></div>
+            <div class="flex-1">
+                <label for="project_id" class="block text-sm font-medium text-gray-700 mb-1">Project</label>
+                <select id="project_id" name="project_id"
+                    class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none">
+                    <option value="">— No Project —</option>
+                    {% for proj in projects %}
+                    <option value="{{ proj.id }}" {% if plan and plan.project_id == proj.id %}selected{% endif %}>{{ proj.title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="enhance-wrap">
+            <label for="title" class="block text-sm font-medium text-gray-700 mb-1">Plan Title</label>
+            <div class="enhance-field-row">
+                {{ enhance_icon("Plan Title") }}
+                <input type="text" id="title" name="title" value="{{ plan.title if plan else '' }}" required
+                    class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all"
+                    placeholder="e.g., Mobile App Redesign Q3 2025">
+            </div>
+            {{ enhance_footer() }}
+        </div>
+
+        <div class="enhance-wrap">
+            <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <div class="enhance-field-row">
+                {{ enhance_icon("Description") }}
+                <textarea id="description" name="description" rows="3"
+                    class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all resize-none"
+                    placeholder="Brief description of this product plan...">{{ plan.description if plan else '' }}</textarea>
+            </div>
+            {{ enhance_footer() }}
+        </div>
+
+        {% if plan %}
+        <div class="enhance-wrap">
+            <label for="vision" class="block text-sm font-medium text-gray-700 mb-1">Vision</label>
+            <div class="enhance-field-row">
+                {{ enhance_icon("Vision") }}
+                <textarea id="vision" name="vision" rows="3"
+                    class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all resize-none"
+                    placeholder="Product vision statement...">{{ plan.vision }}</textarea>
+            </div>
+            {{ enhance_footer() }}
+        </div>
+
+        <div class="enhance-wrap">
+            <label for="target_audience" class="block text-sm font-medium text-gray-700 mb-1">Target Audience</label>
+            <div class="enhance-field-row">
+                {{ enhance_icon("Target Audience") }}
+                <textarea id="target_audience" name="target_audience" rows="2"
+                    class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all resize-none"
+                    placeholder="Who is this for?">{{ plan.target_audience }}</textarea>
+            </div>
+            {{ enhance_footer() }}
+        </div>
+
+        <div class="enhance-field-row">
+            <div class="enhance-spacer"></div>
+            <div class="flex-1">
+                <label for="status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select id="status" name="status"
+                    class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none">
+                    <option value="draft" {% if plan.status == 'draft' %}selected{% endif %}>Draft</option>
+                    <option value="active" {% if plan.status == 'active' %}selected{% endif %}>Active</option>
+                    <option value="completed" {% if plan.status == 'completed' %}selected{% endif %}>Completed</option>
+                    <option value="archived" {% if plan.status == 'archived' %}selected{% endif %}>Archived</option>
+                </select>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="enhance-field-row items-center pt-2">
+            <div class="enhance-spacer"></div>
+            <button type="submit" class="px-5 py-2.5 bg-brand-600 text-white font-medium rounded-lg hover:bg-brand-700 transition-colors">
+                {% if plan %}Save Changes{% else %}Create Plan{% endif %}
+            </button>
+            <a href="{% if plan %}/plans/{{ plan.id }}{% else %}/{% endif %}" class="px-5 py-2.5 text-gray-600 font-medium rounded-lg hover:bg-gray-100 transition-colors">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

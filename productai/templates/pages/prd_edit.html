@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% block title %}{% if prd %}Edit PRD — {{ prd.title }}{% else %}New PRD{% endif %} — ProductAI{% endblock %}
+
+{% macro enhance_icon(field_label) %}
+<div class="enhance-popover">
+    <button type="button" class="enhance-trigger" data-field="{{ field_label }}" title="Enhance with AI — hover to activate">
+        <svg class="enhance-progress-ring" viewBox="0 0 36 36">
+            <circle class="enhance-ring-bg" cx="18" cy="18" r="16"/>
+            <circle class="enhance-ring-fill" cx="18" cy="18" r="16"
+                transform="rotate(-90 18 18)"/>
+        </svg>
+        <svg class="enhance-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+    </button>
+</div>
+{% endmacro %}
+
+{% macro enhance_footer() %}
+<div class="enhance-instruction">
+    <div class="enhance-level-chips">
+        <button type="button" data-level="light" title="Light: grammar &amp; clarity">L</button>
+        <button type="button" data-level="medium" title="Medium: rewrite for impact" class="active">M</button>
+        <button type="button" data-level="heavy" title="Heavy: expand &amp; enrich">H</button>
+    </div>
+    <input type="text" placeholder="Add instructions… Enter to enhance" autocomplete="off">
+</div>
+<span class="enhance-status"><span class="spinner"></span> Enhancing...</span>
+<div class="enhance-preview"></div>
+<div class="enhance-preview-actions">
+    <button type="button" class="enhance-accept">Accept</button>
+    <button type="button" class="enhance-discard">Discard</button>
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="p-8 max-w-4xl mx-auto">
+    <nav class="text-sm text-gray-500 mb-6">
+        <a href="/" class="hover:text-brand-600">Dashboard</a>
+        <span class="mx-2">/</span>
+        <span class="text-gray-900">{% if prd %}Edit PRD{% else %}New PRD{% endif %}</span>
+    </nav>
+
+    {% if not prd %}
+    <!-- New PRD form -->
+    <h1 class="text-2xl font-bold mb-6">Create New PRD</h1>
+    <form action="/api/prds" method="post" class="space-y-6">
+        <div class="enhance-wrap">
+            <label for="title" class="block text-sm font-medium text-gray-700 mb-1">PRD Title</label>
+            <div class="enhance-field-row">
+                {{ enhance_icon("PRD Title") }}
+                <input type="text" id="title" name="title" required
+                    class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all"
+                    placeholder="e.g., User Onboarding Flow v2">
+            </div>
+            {{ enhance_footer() }}
+        </div>
+        <div class="enhance-field-row">
+            <div class="enhance-spacer"></div>
+            <div class="flex-1">
+                <label for="plan_id" class="block text-sm font-medium text-gray-700 mb-1">Link to Plan (optional)</label>
+                <select id="plan_id" name="plan_id"
+                    class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none">
+                    <option value="">— No plan —</option>
+                    {% for plan in plans %}
+                    <option value="{{ plan.id }}">{{ plan.title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="enhance-field-row">
+            <div class="enhance-spacer"></div>
+            <button type="submit" class="px-5 py-2.5 bg-brand-600 text-white font-medium rounded-lg hover:bg-brand-700 transition-colors">
+                Create PRD
+            </button>
+        </div>
+    </form>
+
+    {% else %}
+    <!-- Edit PRD -->
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+            <h1 class="text-2xl font-bold">Edit PRD: {{ prd.title }}</h1>
+            {% if current_version is defined and current_version > 0 %}
+            <a href="/prds/{{ prd.id }}/versions" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-brand-50 text-brand-700 border border-brand-200 hover:bg-brand-100 transition-colors" title="View version history">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                v{{ current_version }}
+            </a>
+            {% endif %}
+        </div>
+        <span class="inline-flex px-3 py-1 text-sm font-medium rounded-full
+            {% if prd.status == 'review' %}bg-amber-100 text-amber-700
+            {% elif prd.status == 'approved' %}bg-emerald-100 text-emerald-700
+            {% else %}bg-blue-100 text-blue-700{% endif %}">
+            {{ prd.status }}
+        </span>
+    </div>
+
+    <!-- AI Generate section -->
+    <div class="bg-gradient-to-r from-brand-50 to-indigo-50 rounded-xl border border-brand-200 p-5 mb-6">
+        <h3 class="font-semibold text-brand-800 mb-2 flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+            AI PRD Generator
+        </h3>
+        <p class="text-sm text-brand-700 mb-3">Describe the product or feature and let AI generate a complete PRD for you.</p>
+        <form id="ai-generate-form">
+            <textarea id="ai-context" rows="3"
+                class="w-full px-4 py-2.5 rounded-lg border border-brand-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all resize-none text-sm"
+                placeholder="e.g., A mobile banking feature that allows users to split bills with friends. Target users are millennials who frequently dine together..."></textarea>
+            <button type="submit" id="generate-btn"
+                class="mt-2 px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50">
+                Generate PRD with AI
+            </button>
+        </form>
+    </div>
+
+    <!-- Manual edit form -->
+    <form action="/api/prds/{{ prd.id }}" method="post" class="space-y-5">
+        <div class="enhance-field-row">
+            <div class="enhance-spacer"></div>
+            <div class="flex-1 grid grid-cols-2 gap-4">
+                <div class="enhance-wrap">
+                    <label for="title" class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                    <div class="enhance-field-row">
+                        {{ enhance_icon("PRD Title") }}
+                        <input type="text" id="title" name="title" value="{{ prd.title }}"
+                            class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all">
+                    </div>
+                    {{ enhance_footer() }}
+                </div>
+                <div>
+                    <label for="status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select id="status" name="status"
+                        class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none">
+                        <option value="draft" {% if prd.status == 'draft' %}selected{% endif %}>Draft</option>
+                        <option value="review" {% if prd.status == 'review' %}selected{% endif %}>In Review</option>
+                        <option value="approved" {% if prd.status == 'approved' %}selected{% endif %}>Approved</option>
+                        <option value="archived" {% if prd.status == 'archived' %}selected{% endif %}>Archived</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="enhance-wrap">
+            <label for="overview" class="block text-sm font-medium text-gray-700 mb-1">Overview</label>
+            <div class="enhance-field-row">
+                {{ enhance_icon("Overview") }}
+                <textarea id="overview" name="overview" rows="2"
+                    class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all resize-none"
+                    placeholder="Brief summary of the product/feature">{{ prd.overview }}</textarea>
+            </div>
+            {{ enhance_footer() }}
+        </div>
+
+        <div class="enhance-wrap">
+            <label for="problem_statement" class="block text-sm font-medium text-gray-700 mb-1">Problem Statement</label>
+            <div class="enhance-field-row">
+                {{ enhance_icon("Problem Statement") }}
+                <textarea id="problem_statement" name="problem_statement" rows="3"
+                    class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all resize-none"
+                    placeholder="What problem are we solving?">{{ prd.problem_statement }}</textarea>
+            </div>
+            {{ enhance_footer() }}
+        </div>
+
+        <div class="enhance-wrap">
+            <label for="proposed_solution" class="block text-sm font-medium text-gray-700 mb-1">Proposed Solution</label>
+            <div class="enhance-field-row">
+                {{ enhance_icon("Proposed Solution") }}
+                <textarea id="proposed_solution" name="proposed_solution" rows="3"
+                    class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all resize-none"
+                    placeholder="How will we solve it?">{{ prd.proposed_solution }}</textarea>
+            </div>
+            {{ enhance_footer() }}
+        </div>
+
+        <div class="enhance-wrap">
+            <label for="content" class="block text-sm font-medium text-gray-700 mb-1">Full PRD Content (Markdown)</label>
+            <div class="enhance-field-row">
+                {{ enhance_icon("Full PRD Content") }}
+                <textarea id="content" name="content" rows="15"
+                    class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all resize-y font-mono text-sm"
+                    placeholder="Full PRD content in markdown...">{{ prd.content }}</textarea>
+            </div>
+            {{ enhance_footer() }}
+        </div>
+
+        <div class="enhance-wrap">
+            <label for="timeline" class="block text-sm font-medium text-gray-700 mb-1">Timeline</label>
+            <div class="enhance-field-row">
+                {{ enhance_icon("Timeline") }}
+                <textarea id="timeline" name="timeline" rows="2"
+                    class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all resize-none"
+                    placeholder="Delivery timeline and milestones">{{ prd.timeline }}</textarea>
+            </div>
+            {{ enhance_footer() }}
+        </div>
+
+        <div class="enhance-field-row items-center pt-2">
+            <div class="enhance-spacer"></div>
+            <button type="submit" class="px-5 py-2.5 bg-brand-600 text-white font-medium rounded-lg hover:bg-brand-700 transition-colors">
+                Save PRD
+            </button>
+            <a href="/prds/{{ prd.id }}" class="px-5 py-2.5 text-gray-600 font-medium rounded-lg hover:bg-gray-100 transition-colors">
+                Cancel
+            </a>
+            <a href="/prds/{{ prd.id }}/chat" class="ml-auto inline-flex items-center gap-2 px-4 py-2.5 border border-brand-200 text-brand-600 font-medium rounded-lg hover:bg-brand-50 transition-colors text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                </svg>
+                Refine with AI
+            </a>
+        </div>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if prd %}
+<script>
+const generateForm = document.getElementById('ai-generate-form');
+const generateBtn = document.getElementById('generate-btn');
+const contentField = document.getElementById('content');
+const contextInput = document.getElementById('ai-context');
+
+generateForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const context = contextInput.value.trim();
+    if (!context) return;
+
+    generateBtn.disabled = true;
+    generateBtn.textContent = 'Generating...';
+    contentField.value = '';
+
+    const formData = new FormData();
+    formData.append('context', context);
+    formData.append('prd_id', '{{ prd.id }}');
+
+    streamAI('/api/ai/prd/generate', formData,
+        (token) => {
+            contentField.value += token;
+            contentField.scrollTop = contentField.scrollHeight;
+        },
+        () => {
+            generateBtn.disabled = false;
+            generateBtn.textContent = 'Generate PRD with AI';
+        }
+    );
+});
+</script>
+{% endif %}
+{% endblock %}

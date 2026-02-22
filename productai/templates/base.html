@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ProductAI{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe',
+                            500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8',
+                            800: '#1e40af', 900: '#1e3a5f',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .prose h1 { font-size: 1.5rem; font-weight: 700; margin: 1rem 0 0.5rem; }
+        .prose h2 { font-size: 1.25rem; font-weight: 600; margin: 1rem 0 0.5rem; }
+        .prose h3 { font-size: 1.1rem; font-weight: 600; margin: 0.75rem 0 0.25rem; }
+        .prose p { margin: 0.5rem 0; line-height: 1.6; }
+        .prose ul, .prose ol { margin: 0.5rem 0; padding-left: 1.5rem; }
+        .prose ul { list-style-type: disc; }
+        .prose ol { list-style-type: decimal; }
+        .prose li { margin: 0.25rem 0; }
+        .prose strong { font-weight: 600; }
+        .prose code { background: #f1f5f9; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.875rem; }
+        .prose pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin: 0.75rem 0; }
+        .prose pre code { background: none; padding: 0; color: inherit; }
+        .prose blockquote { border-left: 3px solid #3b82f6; padding-left: 1rem; margin: 0.75rem 0; color: #64748b; }
+        .chat-bubble { animation: fadeIn 0.2s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse-dot { 0%, 80%, 100% { opacity: 0.3; } 40% { opacity: 1; } }
+        .typing-dot { animation: pulse-dot 1.4s infinite; }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        /* AI Enhance component */
+        .enhance-wrap { position: relative; }
+        .enhance-field-row {
+            display: flex; align-items: flex-start; gap: 0.5rem;
+        }
+        .enhance-field-row > :last-child { flex: 1; min-width: 0; }
+
+        .enhance-popover { position: relative; flex-shrink: 0; }
+
+        /* Invisible spacer — matches icon width so non-enhanced fields align */
+        .enhance-spacer { width: 32px; flex-shrink: 0; }
+
+        .enhance-trigger {
+            position: relative;
+            display: flex; align-items: center; justify-content: center;
+            width: 32px; height: 32px; margin-top: 2px;
+            border-radius: 50%; border: 1px solid transparent;
+            background: transparent; color: #7c3aed;
+            cursor: pointer; transition: opacity 0.25s, background 0.2s, border-color 0.2s;
+            flex-shrink: 0; opacity: 0.12;
+        }
+        .enhance-trigger:hover { opacity: 1; }
+        .enhance-trigger:disabled { opacity: 0.05; cursor: not-allowed; }
+        .enhance-bolt { width: 16px; height: 16px; position: relative; z-index: 1; }
+
+        /* Progress ring — sits behind the bolt icon */
+        .enhance-progress-ring {
+            position: absolute; inset: -3px;
+            width: calc(100% + 6px); height: calc(100% + 6px);
+            opacity: 0; transition: opacity 0.2s;
+            pointer-events: none;
+        }
+        .enhance-trigger:hover .enhance-progress-ring { opacity: 1; }
+        .enhance-ring-bg { fill: none; stroke: #ede9fe; stroke-width: 2; }
+        .enhance-ring-fill {
+            fill: none; stroke: #7c3aed; stroke-width: 2.5;
+            stroke-linecap: round;
+            stroke-dasharray: 100.53; stroke-dashoffset: 100.53;
+        }
+        .enhance-trigger.hovering .enhance-ring-fill {
+            animation: enhance-ring 2s linear forwards;
+        }
+        .enhance-trigger.ring-done {
+            background: #f5f3ff; border-color: #c4b5fd;
+            box-shadow: 0 0 0 2px #ede9fe;
+        }
+        @keyframes enhance-ring { to { stroke-dashoffset: 0; } }
+
+        /* Instruction row — two phases: chips-only → chips + input */
+        .enhance-instruction {
+            display: none; margin-top: 0.375rem;
+            animation: fadeIn 0.18s ease;
+        }
+        .enhance-instruction.chips-only,
+        .enhance-instruction.with-input { display: flex; gap: 0.375rem; align-items: center; }
+
+        .enhance-level-chips { display: flex; gap: 2px; flex-shrink: 0; }
+        .enhance-level-chips button {
+            width: 26px; height: 26px; border-radius: 6px;
+            border: 1.5px solid #e5e7eb; background: white;
+            font-size: 0.625rem; font-weight: 700; letter-spacing: 0.02em;
+            cursor: pointer; transition: all 0.15s;
+            display: flex; align-items: center; justify-content: center;
+            color: #9ca3af;
+        }
+        .enhance-level-chips button:hover { border-color: #c4b5fd; color: #6b7280; }
+        .enhance-level-chips button[data-level="light"].active  { background: #ecfdf5; color: #059669; border-color: #34d399; }
+        .enhance-level-chips button[data-level="medium"].active { background: #fffbeb; color: #d97706; border-color: #fbbf24; }
+        .enhance-level-chips button[data-level="heavy"].active  { background: #fef2f2; color: #dc2626; border-color: #f87171; }
+
+        /* Input hidden in chips-only, slides in for with-input */
+        .enhance-instruction input {
+            flex: 1; padding: 0.375rem 0.625rem; border-radius: 0.375rem;
+            border: 1px solid #ddd6fe; font-size: 0.75rem; color: #374151;
+            outline: none; transition: border-color 0.15s;
+            display: none;
+        }
+        .enhance-instruction.with-input input {
+            display: block;
+            animation: enhance-input-in 0.22s ease;
+        }
+        .enhance-instruction input:focus { border-color: #a78bfa; box-shadow: 0 0 0 2px #ede9fe; }
+        .enhance-instruction input::placeholder { color: #b4b4bd; }
+        @keyframes enhance-input-in {
+            from { opacity: 0; transform: translateX(-8px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+
+        .enhance-status {
+            font-size: 0.6875rem; color: #6b7280;
+            display: none; align-items: center; gap: 0.375rem;
+            margin-top: 0.25rem;
+        }
+        .enhance-status.active { display: inline-flex; }
+        .enhance-status .spinner {
+            width: 12px; height: 12px; border: 2px solid #e5e7eb;
+            border-top-color: #7c3aed; border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .enhance-preview {
+            display: none; margin-top: 0.375rem; padding: 0.75rem;
+            background: #faf5ff; border: 1px solid #ddd6fe; border-radius: 0.5rem;
+            font-size: 0.8125rem; line-height: 1.5; color: #374151;
+            white-space: pre-wrap;
+        }
+        .enhance-preview.active { display: block; }
+        .enhance-preview-actions {
+            display: none; margin-top: 0.375rem; gap: 0.375rem;
+        }
+        .enhance-preview-actions.active { display: flex; }
+        .enhance-preview-actions button {
+            padding: 0.25rem 0.75rem; border-radius: 0.375rem;
+            font-size: 0.75rem; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s;
+        }
+        .enhance-accept { background: #7c3aed; color: white; }
+        .enhance-accept:hover { background: #6d28d9; }
+        .enhance-discard { background: #f3f4f6; color: #374151; }
+        .enhance-discard:hover { background: #e5e7eb; }
+
+        /* Autocomplete dropdown */
+        .ac-dropdown {
+            position: fixed; z-index: 99999;
+            background: white; border: 1px solid #e5e7eb; border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            min-width: 180px; max-width: 300px; overflow: hidden;
+            animation: fadeIn 0.12s ease;
+        }
+        .ac-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 12px; cursor: pointer; transition: background 0.1s;
+            font-size: 13px; color: #374151;
+        }
+        .ac-item:hover, .ac-item.selected { background: #f3f4f6; }
+        .ac-shortcut {
+            width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+            background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px;
+            font-size: 10px; font-weight: 600; color: #9ca3af; flex-shrink: 0;
+        }
+        .ac-match { color: #2563eb; font-weight: 500; }
+        .ac-rest { color: #6b7280; }
+
+        /* Fullscreen dialog autocomplete (dark variant) */
+        .ac-dropdown-dark {
+            background: #1e1e2e; border-color: #313244;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+        .ac-dropdown-dark .ac-item { color: #cdd6f4; }
+        .ac-dropdown-dark .ac-item:hover,
+        .ac-dropdown-dark .ac-item.selected { background: #313244; }
+        .ac-dropdown-dark .ac-shortcut {
+            background: #11111b; border-color: #313244; color: #6c7086;
+        }
+        .ac-dropdown-dark .ac-match { color: #89b4fa; }
+        .ac-dropdown-dark .ac-rest { color: #a6adc8; }
+
+        /* Fullscreen view-mode dialog */
+        .expand-trigger {
+            position: absolute; top: 0; right: 0;
+            display: flex; align-items: center; justify-content: center;
+            width: 24px; height: 24px; border-radius: 4px;
+            border: none; background: transparent; color: #9ca3af;
+            cursor: pointer; transition: all 0.15s; opacity: 0;
+        }
+        .enhance-wrap:hover .expand-trigger,
+        .expand-trigger:focus-visible { opacity: 1; }
+        .expand-trigger:hover { color: #6b7280; background: #f3f4f6; }
+
+        .fullscreen-dialog-overlay {
+            display: none; position: fixed; inset: 0; z-index: 9999;
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+            align-items: center; justify-content: center;
+        }
+        .fullscreen-dialog-overlay.active { display: flex; }
+        .fullscreen-dialog {
+            width: 92vw; height: 92vh; max-width: 1200px;
+            background: white; border-radius: 12px;
+            display: flex; flex-direction: column;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.25);
+            animation: dialog-in 0.2s ease;
+        }
+        @keyframes dialog-in {
+            from { opacity: 0; transform: scale(0.97); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+        .fullscreen-dialog-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 24px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0;
+        }
+        .fullscreen-dialog-header h2 {
+            font-size: 1rem; font-weight: 600; color: #111827; margin: 0;
+        }
+        .fullscreen-dialog-close {
+            width: 32px; height: 32px; border-radius: 8px; border: none;
+            background: #f3f4f6; color: #374151; cursor: pointer; transition: all 0.15s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .fullscreen-dialog-close:hover { background: #e5e7eb; }
+        .fullscreen-dialog-body {
+            flex: 1; padding: 20px 24px 0; min-height: 0;
+            display: flex; flex-direction: column; gap: 0;
+            overflow-y: auto;
+        }
+        .fullscreen-dialog-body textarea {
+            width: 100%; border: 1px solid #d1d5db; border-radius: 8px 8px 0 0;
+            padding: 16px; font-size: 0.9375rem; line-height: 1.7; color: #111827;
+            outline: none; resize: none; transition: border-color 0.15s;
+            overflow: hidden; min-height: 200px;
+        }
+        .fullscreen-dialog-body textarea:focus {
+            border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        }
+        .fullscreen-dialog-body textarea.mono { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.875rem; }
+
+        /* AI toolbar at bottom of fullscreen dialog */
+        .fs-ai-toolbar {
+            border: 1px solid #d1d5db; border-top: none; border-radius: 0 0 8px 8px;
+            background: #fafafa; padding: 10px 16px; flex-shrink: 0;
+            display: flex; flex-direction: column; gap: 8px;
+            position: sticky; bottom: 0; margin-bottom: 20px;
+        }
+        .fs-ai-row { display: flex; align-items: center; gap: 8px; }
+        .fs-ai-selection-badge {
+            display: none; align-items: center; gap: 6px;
+            padding: 3px 10px; border-radius: 6px;
+            background: #ede9fe; color: #6d28d9;
+            font-size: 0.6875rem; font-weight: 600; white-space: nowrap;
+            max-width: 260px; overflow: hidden; text-overflow: ellipsis;
+        }
+        .fs-ai-selection-badge.active { display: inline-flex; }
+        .fs-ai-selection-badge svg { flex-shrink: 0; }
+        .fs-ai-hint {
+            font-size: 0.6875rem; color: #9ca3af;
+            display: flex; align-items: center; gap: 4px;
+        }
+        .fs-ai-hint.hidden { display: none; }
+        .fs-ai-level-chips { display: flex; gap: 2px; flex-shrink: 0; }
+        .fs-ai-level-chips button {
+            width: 26px; height: 26px; border-radius: 6px;
+            border: 1.5px solid #e5e7eb; background: white;
+            font-size: 0.625rem; font-weight: 700; letter-spacing: 0.02em;
+            cursor: pointer; transition: all 0.15s;
+            display: flex; align-items: center; justify-content: center;
+            color: #9ca3af;
+        }
+        .fs-ai-level-chips button:hover { border-color: #c4b5fd; color: #6b7280; }
+        .fs-ai-level-chips button[data-level="light"].active  { background: #ecfdf5; color: #059669; border-color: #34d399; }
+        .fs-ai-level-chips button[data-level="medium"].active { background: #fffbeb; color: #d97706; border-color: #fbbf24; }
+        .fs-ai-level-chips button[data-level="heavy"].active  { background: #fef2f2; color: #dc2626; border-color: #f87171; }
+        .fs-ai-input {
+            flex: 1; padding: 6px 10px; border-radius: 6px;
+            border: 1px solid #ddd6fe; font-size: 0.75rem; color: #374151;
+            outline: none; transition: border-color 0.15s;
+        }
+        .fs-ai-input:focus { border-color: #a78bfa; box-shadow: 0 0 0 2px #ede9fe; }
+        .fs-ai-input::placeholder { color: #b4b4bd; }
+        .fs-ai-send {
+            width: 32px; height: 32px; border-radius: 6px; border: none;
+            background: #7c3aed; color: white; cursor: pointer; transition: all 0.15s;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .fs-ai-send:hover { background: #6d28d9; }
+        .fs-ai-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* Preview strip */
+        .fs-ai-preview-row {
+            display: none; flex-direction: column; gap: 6px;
+        }
+        .fs-ai-preview-row.active { display: flex; }
+        .fs-ai-preview-label {
+            font-size: 0.6875rem; font-weight: 600; color: #6d28d9;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .fs-ai-preview-label .spinner {
+            width: 12px; height: 12px; border: 2px solid #e5e7eb;
+            border-top-color: #7c3aed; border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+        .fs-ai-preview-text {
+            padding: 8px 12px; background: #faf5ff; border: 1px solid #ddd6fe;
+            border-radius: 6px; font-size: 0.8125rem; line-height: 1.5;
+            color: #374151; white-space: pre-wrap; max-height: 120px; overflow-y: auto;
+        }
+        .fs-ai-preview-actions {
+            display: none; gap: 6px;
+        }
+        .fs-ai-preview-actions.active { display: flex; }
+        .fs-ai-preview-actions button {
+            padding: 4px 12px; border-radius: 6px;
+            font-size: 0.75rem; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s;
+        }
+        .fs-ai-preview-accept { background: #7c3aed; color: white; }
+        .fs-ai-preview-accept:hover { background: #6d28d9; }
+        .fs-ai-preview-discard { background: #f3f4f6; color: #374151; }
+        .fs-ai-preview-discard:hover { background: #e5e7eb; }
+    </style>
+</head>
+<body class="h-full bg-gray-50 font-sans text-gray-900">
+    <div class="flex h-full">
+        <!-- Sidebar -->
+        <nav class="w-64 bg-brand-900 text-white flex flex-col shrink-0">
+            <div class="p-5 border-b border-white/10">
+                <a href="/" class="flex items-center gap-2 text-lg font-semibold tracking-tight">
+                    <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                    ProductAI
+                </a>
+            </div>
+            <div class="flex-1 p-4 space-y-0.5">
+                <a href="/" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+                    </svg>
+                    Dashboard
+                </a>
+                <div class="pt-3 pb-1 px-3">
+                    <span class="text-[10px] font-semibold uppercase tracking-widest text-white/30">Hierarchy</span>
+                </div>
+                <a href="/projects/new" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                    </svg>
+                    New Project
+                </a>
+                <a href="/plans/new" class="flex items-center gap-3 pl-7 pr-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium text-white/70">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    New Plan
+                </a>
+                <a href="/prds/new" class="flex items-center gap-3 pl-11 pr-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium text-white/50">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+                    </svg>
+                    New PRD
+                </a>
+            </div>
+            <div class="p-4 border-t border-white/10 space-y-1">
+                <a href="/admin" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                    Admin
+                </a>
+                <div class="text-xs text-white/50 px-3 pt-1">Powered by Claude AI</div>
+            </div>
+        </nav>
+
+        <!-- Main content -->
+        <main class="flex-1 overflow-y-auto">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <script>
+    // Markdown rendering utility
+    function renderMarkdown(text) {
+        if (typeof marked !== 'undefined') {
+            return marked.parse(text);
+        }
+        return text.replace(/\n/g, '<br>');
+    }
+
+    // SSE streaming utility for AI chat
+    function streamAI(url, formData, onToken, onDone) {
+        fetch(url, { method: 'POST', body: formData })
+            .then(response => {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                function read() {
+                    reader.read().then(({ done, value }) => {
+                        if (done) return;
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop();
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const data = JSON.parse(line.slice(6));
+                                    if (data.token) onToken(data.token);
+                                    if (data.done) { onDone(data); return; }
+                                } catch(e) {}
+                            }
+                        }
+                        read();
+                    });
+                }
+                read();
+            });
+    }
+    // Auto-render markdown in any element with class "md-render"
+    function renderAllMarkdown() {
+        document.querySelectorAll('.md-render').forEach(el => {
+            const raw = el.textContent;
+            if (raw && raw.trim()) {
+                el.innerHTML = renderMarkdown(raw);
+            }
+        });
+    }
+
+    // ── Autocomplete Component ─────────────────────────
+    const Autocomplete = (() => {
+        const cache = new Map();
+        const CACHE_TTL = 30000;
+        const DEBOUNCE_MS = 120;
+        let activeInstance = null;
+
+        function getWordAtCursor(text, pos) {
+            let start = pos;
+            while (start > 0 && /[\w\u0080-\uFFFF-]/.test(text[start - 1])) start--;
+            const word = text.substring(start, pos);
+            // Previous word for context
+            let pEnd = start - 1;
+            while (pEnd > 0 && /\s/.test(text[pEnd])) pEnd--;
+            let pStart = pEnd;
+            while (pStart > 0 && /[\w\u0080-\uFFFF-]/.test(text[pStart - 1])) pStart--;
+            const prevWord = pStart < pEnd ? text.substring(pStart, pEnd + 1) : '';
+            return { word, start, prevWord };
+        }
+
+        async function fetchSuggestions(prefix, context) {
+            const key = prefix + '|' + (context || '');
+            const cached = cache.get(key);
+            if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
+            try {
+                const res = await fetch('/api/autocomplete/words', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prefix, context, limit: 8 })
+                });
+                const data = await res.json();
+                const suggestions = data.suggestions || [];
+                cache.set(key, { data: suggestions, ts: Date.now() });
+                if (cache.size > 80) {
+                    const oldest = cache.keys().next().value;
+                    cache.delete(oldest);
+                }
+                return suggestions;
+            } catch { return []; }
+        }
+
+        function calcPosition(textarea, cursorPos) {
+            const rect = textarea.getBoundingClientRect();
+            const style = window.getComputedStyle(textarea);
+
+            // Create a mirror div that replicates the textarea's layout
+            const mirror = document.createElement('div');
+            const props = [
+                'font', 'fontSize', 'fontFamily', 'fontWeight', 'fontStyle',
+                'letterSpacing', 'wordSpacing', 'textIndent', 'textTransform',
+                'lineHeight', 'paddingTop', 'paddingRight', 'paddingBottom',
+                'paddingLeft', 'borderTopWidth', 'borderRightWidth',
+                'borderBottomWidth', 'borderLeftWidth', 'boxSizing',
+                'whiteSpace', 'wordWrap', 'overflowWrap', 'wordBreak'
+            ];
+            mirror.style.cssText = 'position:absolute;visibility:hidden;overflow:hidden;pointer-events:none;';
+            mirror.style.width = textarea.clientWidth + 'px';
+            props.forEach(p => { mirror.style[p] = style[p]; });
+            mirror.style.whiteSpace = 'pre-wrap';
+            mirror.style.wordWrap = 'break-word';
+
+            // Insert text up to cursor, with a marker span at the end
+            const textBefore = textarea.value.substring(0, cursorPos);
+            const textNode = document.createTextNode(textBefore);
+            const marker = document.createElement('span');
+            marker.textContent = '\u200b'; // zero-width space
+            mirror.appendChild(textNode);
+            mirror.appendChild(marker);
+            document.body.appendChild(mirror);
+
+            const markerRect = marker.getBoundingClientRect();
+            const mirrorRect = mirror.getBoundingClientRect();
+
+            // Cursor position relative to the textarea's top-left
+            const cursorTop = markerRect.top - mirrorRect.top - textarea.scrollTop;
+            const cursorLeft = markerRect.left - mirrorRect.left;
+
+            document.body.removeChild(mirror);
+
+            const lineHeight = parseFloat(style.lineHeight) || 20;
+            return {
+                top: rect.top + cursorTop + lineHeight + 4,
+                left: rect.left + Math.min(cursorLeft, textarea.clientWidth - 220)
+            };
+        }
+
+        function attach(textarea) {
+            let dropdown = null;
+            let suggestions = [];
+            let selectedIdx = 0;
+            let wordStart = 0;
+            let currentWord = '';
+            let debounceTimer = null;
+
+            function createDropdown() {
+                if (dropdown) return;
+                dropdown = document.createElement('div');
+                dropdown.className = 'ac-dropdown';
+                // Copy dark theme class if textarea is inside fullscreen dialog
+                if (textarea.closest('.fullscreen-dialog')) dropdown.classList.add('ac-dropdown-dark');
+                document.body.appendChild(dropdown);
+            }
+
+            function hide() {
+                if (dropdown) { dropdown.remove(); dropdown = null; }
+                suggestions = [];
+                if (activeInstance === textarea) activeInstance = null;
+            }
+
+            function render() {
+                if (!suggestions.length) { hide(); return; }
+                createDropdown();
+                const pos = calcPosition(textarea, textarea.selectionEnd);
+                dropdown.style.top = pos.top + 'px';
+                dropdown.style.left = pos.left + 'px';
+                dropdown.innerHTML = suggestions.map((s, i) => {
+                    const matchLen = currentWord.length;
+                    return `<div class="ac-item${i === selectedIdx ? ' selected' : ''}" data-idx="${i}">
+                        <span class="ac-shortcut">${i + 1}</span>
+                        <span><span class="ac-match">${esc(s.substring(0, matchLen))}</span><span class="ac-rest">${esc(s.substring(matchLen))}</span></span>
+                    </div>`;
+                }).join('');
+                // Mouse events
+                dropdown.querySelectorAll('.ac-item').forEach(el => {
+                    el.addEventListener('mouseenter', () => {
+                        selectedIdx = parseInt(el.dataset.idx);
+                        render();
+                    });
+                    el.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        accept(parseInt(el.dataset.idx));
+                    });
+                });
+                activeInstance = textarea;
+            }
+
+            function accept(idx) {
+                if (idx == null) idx = selectedIdx;
+                const s = suggestions[idx];
+                if (!s) return;
+                const val = textarea.value;
+                const completion = s.substring(currentWord.length) + ' ';
+                const cursorPos = textarea.selectionEnd;
+                textarea.value = val.substring(0, cursorPos) + completion + val.substring(cursorPos);
+                const newPos = cursorPos + completion.length;
+                textarea.setSelectionRange(newPos, newPos);
+                textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                hide();
+                textarea.focus();
+            }
+
+            async function update() {
+                const pos = textarea.selectionEnd;
+                const { word, start, prevWord } = getWordAtCursor(textarea.value, pos);
+                if (word.length < 2) { hide(); return; }
+                currentWord = word;
+                wordStart = start;
+                const results = await fetchSuggestions(word, prevWord);
+                // Re-check: user may have moved cursor during await
+                if (textarea.selectionEnd !== pos) return;
+                suggestions = results;
+                selectedIdx = 0;
+                render();
+            }
+
+            textarea.addEventListener('input', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(update, DEBOUNCE_MS);
+            });
+
+            textarea.addEventListener('keydown', (e) => {
+                if (!suggestions.length) return;
+                if (e.key === 'ArrowDown') { e.preventDefault(); selectedIdx = (selectedIdx + 1) % suggestions.length; render(); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); selectedIdx = (selectedIdx - 1 + suggestions.length) % suggestions.length; render(); }
+                else if (e.key === 'Tab' || e.key === 'Enter') {
+                    // Only capture if dropdown is visible
+                    if (dropdown) { e.preventDefault(); accept(); }
+                }
+                else if (e.key === 'Escape') { hide(); }
+                else if (e.key >= '1' && e.key <= '8' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                    const idx = parseInt(e.key) - 1;
+                    if (idx < suggestions.length) { e.preventDefault(); accept(idx); }
+                }
+            });
+
+            textarea.addEventListener('blur', () => { setTimeout(hide, 150); });
+            textarea.addEventListener('scroll', () => { if (dropdown) render(); });
+
+            return { hide, update };
+        }
+
+        function esc(s) {
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        return { attach };
+    })();
+
+    function initAutocomplete() {
+        // Attach to all textareas and text inputs in forms
+        document.querySelectorAll('textarea, input[type="text"]').forEach(el => {
+            // Skip search boxes, autocomplete-off fields used for non-text (dates etc.)
+            if (el.type === 'text' && (el.name === 'start_date' || el.name === 'target_date')) return;
+            if (el.closest('.fs-ai-toolbar')) return; // skip AI instruction input
+            Autocomplete.attach(el);
+        });
+    }
+
+    // ── AI Enhance Field Component ──────────────────────
+    function initEnhanceButtons() {
+        document.querySelectorAll('.enhance-wrap').forEach(wrap => {
+            const textarea = wrap.querySelector('textarea, input[type="text"]');
+            const trigger = wrap.querySelector('.enhance-trigger');
+            const instrRow = wrap.querySelector('.enhance-instruction');
+            const instrInput = wrap.querySelector('.enhance-instruction input');
+            const levelChips = wrap.querySelectorAll('.enhance-level-chips button');
+            const status = wrap.querySelector('.enhance-status');
+            const preview = wrap.querySelector('.enhance-preview');
+            const actions = wrap.querySelector('.enhance-preview-actions');
+            const acceptBtn = wrap.querySelector('.enhance-accept');
+            const discardBtn = wrap.querySelector('.enhance-discard');
+            const fieldLabel = trigger ? trigger.dataset.field || 'text' : 'text';
+
+            if (!textarea || !trigger) return;
+
+            let ringTimer = null;
+            let hideTimer = null;
+            let selectedLevel = 'medium';
+            let overTrigger = false;
+            let overInstr = false;
+
+            // ── Phase state helpers ──
+            const isChipsOnly = () => instrRow.classList.contains('chips-only');
+            const hasInput   = () => instrRow.classList.contains('with-input');
+            const isOpen     = () => isChipsOnly() || hasInput();
+
+            function showChips() {
+                if (isOpen() || trigger.disabled || !textarea.value.trim()) return;
+                instrRow.classList.add('chips-only');
+                // Start ring animation for the 2s countdown
+                trigger.classList.remove('hovering');
+                void trigger.offsetWidth;
+                trigger.classList.add('hovering');
+                ringTimer = setTimeout(expandToInput, 2000);
+            }
+
+            function expandToInput() {
+                instrRow.classList.remove('chips-only');
+                instrRow.classList.add('with-input');
+                trigger.classList.remove('hovering');
+                trigger.classList.add('ring-done');
+                instrInput.value = '';
+                instrInput.focus();
+            }
+
+            function closeAll() {
+                clearTimeout(ringTimer);
+                clearTimeout(hideTimer);
+                instrRow.classList.remove('chips-only', 'with-input');
+                trigger.classList.remove('hovering', 'ring-done');
+            }
+
+            // Schedule a close, but only if nobody is hovering
+            function scheduleHide() {
+                clearTimeout(hideTimer);
+                hideTimer = setTimeout(() => {
+                    if (!overTrigger && !overInstr && !hasInput()) closeAll();
+                }, 180);
+            }
+
+            // ── Hover on trigger: show chips immediately ──
+            trigger.addEventListener('mouseenter', () => {
+                overTrigger = true;
+                clearTimeout(hideTimer);
+                showChips();
+            });
+            trigger.addEventListener('mouseleave', () => {
+                overTrigger = false;
+                if (!hasInput()) scheduleHide();
+            });
+
+            // ── Keep open while hovering the instruction row ──
+            instrRow.addEventListener('mouseenter', () => {
+                overInstr = true;
+                clearTimeout(hideTimer);
+            });
+            instrRow.addEventListener('mouseleave', () => {
+                overInstr = false;
+                if (!hasInput()) scheduleHide();
+            });
+
+            // ── Click trigger = instant open with input ──
+            trigger.addEventListener('click', () => {
+                if (!textarea.value.trim() || trigger.disabled) { textarea.focus(); return; }
+                clearTimeout(ringTimer);
+                trigger.classList.remove('hovering');
+                trigger.classList.add('ring-done');
+                instrRow.classList.remove('chips-only');
+                instrRow.classList.add('with-input');
+                instrInput.value = '';
+                instrInput.focus();
+            });
+
+            // ── Level chip click ──
+            levelChips.forEach(chip => {
+                chip.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    levelChips.forEach(c => c.classList.remove('active'));
+                    chip.classList.add('active');
+                    selectedLevel = chip.dataset.level;
+
+                    if (isChipsOnly()) {
+                        // Phase 1: quick-fire immediately
+                        fireEnhance('');
+                    } else {
+                        // Phase 2: just select level, user will Enter
+                        instrInput.focus();
+                    }
+                });
+            });
+
+            // ── Close on outside click ──
+            document.addEventListener('click', (e) => {
+                if (!wrap.contains(e.target) && isOpen() && !status.classList.contains('active')) {
+                    closeAll();
+                }
+            });
+
+            // ── Fire the enhance request ──
+            function fireEnhance(instruction) {
+                const text = textarea.value.trim();
+                if (!text) return;
+
+                closeAll();
+                trigger.disabled = true;
+                status.classList.add('active');
+                preview.classList.add('active');
+                preview.textContent = '';
+                actions.classList.remove('active');
+
+                const formData = new FormData();
+                formData.append('text', text);
+                formData.append('field_label', fieldLabel);
+                formData.append('intensity', selectedLevel);
+                if (instruction) formData.append('instruction', instruction);
+
+                let fullText = '';
+                streamAI('/api/ai/enhance', formData,
+                    (token) => {
+                        fullText += token;
+                        preview.textContent = fullText;
+                    },
+                    (data) => {
+                        trigger.disabled = false;
+                        status.classList.remove('active');
+                        actions.classList.add('active');
+                        fullText = data.content || fullText;
+                        preview.textContent = fullText;
+                    }
+                );
+            }
+
+            // ── Enter → fire, Escape → cancel ──
+            instrInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); fireEnhance(instrInput.value.trim()); }
+                if (e.key === 'Escape') { closeAll(); }
+            });
+
+            // ── Accept / Discard preview ──
+            acceptBtn.addEventListener('click', () => {
+                textarea.value = preview.textContent;
+                preview.classList.remove('active');
+                actions.classList.remove('active');
+                textarea.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+            discardBtn.addEventListener('click', () => {
+                preview.classList.remove('active');
+                actions.classList.remove('active');
+            });
+        });
+    }
+
+    // ── Fullscreen View-Mode Dialog with AI Enhance ─────
+    function initExpandButtons() {
+        // Create overlay once
+        const overlay = document.createElement('div');
+        overlay.className = 'fullscreen-dialog-overlay';
+        overlay.innerHTML = `
+            <div class="fullscreen-dialog">
+                <div class="fullscreen-dialog-header">
+                    <h2 class="fullscreen-dialog-title"></h2>
+                    <button class="fullscreen-dialog-close" title="Close (Esc)">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <div class="fullscreen-dialog-body">
+                    <textarea class="fullscreen-dialog-textarea"></textarea>
+                    <div class="fs-ai-toolbar">
+                        <div class="fs-ai-row">
+                            <span class="fs-ai-selection-badge">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 10H3M21 6H3M21 14H3M17 18H3"/></svg>
+                                <span class="fs-ai-selection-text"></span>
+                            </span>
+                            <span class="fs-ai-hint">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                Select text to enhance a portion, or enhance all
+                            </span>
+                            <div class="fs-ai-level-chips" style="margin-left:auto">
+                                <button type="button" data-level="light" title="Light: grammar &amp; clarity">L</button>
+                                <button type="button" data-level="medium" title="Medium: rewrite for impact" class="active">M</button>
+                                <button type="button" data-level="heavy" title="Heavy: expand &amp; enrich">H</button>
+                            </div>
+                            <input type="text" class="fs-ai-input" placeholder="Instructions… Enter to enhance" autocomplete="off">
+                            <button type="button" class="fs-ai-send" title="Enhance">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                            </button>
+                        </div>
+                        <div class="fs-ai-preview-row">
+                            <div class="fs-ai-preview-label">
+                                <span class="spinner"></span>
+                                <span class="fs-ai-preview-label-text">AI suggestion</span>
+                            </div>
+                            <div class="fs-ai-preview-text"></div>
+                            <div class="fs-ai-preview-actions">
+                                <button type="button" class="fs-ai-preview-accept">Accept</button>
+                                <button type="button" class="fs-ai-preview-discard">Discard</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const dialogTitle = overlay.querySelector('.fullscreen-dialog-title');
+        const dialogTextarea = overlay.querySelector('.fullscreen-dialog-textarea');
+        const closeBtn = overlay.querySelector('.fullscreen-dialog-close');
+        const selBadge = overlay.querySelector('.fs-ai-selection-badge');
+        const selText = overlay.querySelector('.fs-ai-selection-text');
+        const hint = overlay.querySelector('.fs-ai-hint');
+        const levelChips = overlay.querySelectorAll('.fs-ai-level-chips button');
+        const aiInput = overlay.querySelector('.fs-ai-input');
+        const sendBtn = overlay.querySelector('.fs-ai-send');
+        const previewRow = overlay.querySelector('.fs-ai-preview-row');
+        const previewLabel = overlay.querySelector('.fs-ai-preview-label-text');
+        const previewText = overlay.querySelector('.fs-ai-preview-text');
+        const previewActions = overlay.querySelector('.fs-ai-preview-actions');
+        const acceptBtn = overlay.querySelector('.fs-ai-preview-accept');
+        const discardBtn = overlay.querySelector('.fs-ai-preview-discard');
+
+        let sourceField = null;
+        let fieldLabel = '';
+        let selectedLevel = 'medium';
+        let selStart = 0, selEnd = 0, selContent = '';
+        let isEnhancing = false;
+
+        // Auto-resize textarea to fit content
+        function autoResize() {
+            dialogTextarea.style.height = 'auto';
+            dialogTextarea.style.height = dialogTextarea.scrollHeight + 'px';
+        }
+        dialogTextarea.addEventListener('input', autoResize);
+
+        // ── Level chips ──
+        levelChips.forEach(chip => {
+            chip.addEventListener('click', () => {
+                levelChips.forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                selectedLevel = chip.dataset.level;
+            });
+        });
+
+        // ── Track selection in the textarea ──
+        function updateSelection() {
+            const s = dialogTextarea.selectionStart;
+            const e = dialogTextarea.selectionEnd;
+            if (s !== e) {
+                selStart = s;
+                selEnd = e;
+                selContent = dialogTextarea.value.substring(s, e);
+                const preview = selContent.length > 50
+                    ? selContent.substring(0, 50) + '…'
+                    : selContent;
+                selText.textContent = '"' + preview + '"';
+                selBadge.classList.add('active');
+                hint.classList.add('hidden');
+            } else {
+                selContent = '';
+                selBadge.classList.remove('active');
+                hint.classList.remove('hidden');
+            }
+        }
+        dialogTextarea.addEventListener('mouseup', updateSelection);
+        dialogTextarea.addEventListener('keyup', updateSelection);
+        dialogTextarea.addEventListener('select', updateSelection);
+
+        // ── Fire enhance ──
+        function fireEnhance() {
+            const fullText = dialogTextarea.value.trim();
+            if (!fullText || isEnhancing) return;
+
+            const instruction = aiInput.value.trim();
+            const hasSelection = selContent.length > 0;
+
+            isEnhancing = true;
+            sendBtn.disabled = true;
+            previewRow.classList.add('active');
+            previewActions.classList.remove('active');
+            previewText.textContent = '';
+            previewLabel.textContent = hasSelection ? 'Enhancing selection…' : 'Enhancing all…';
+
+            const formData = new FormData();
+            formData.append('field_label', fieldLabel);
+            formData.append('intensity', selectedLevel);
+            if (instruction) formData.append('instruction', instruction);
+
+            let url;
+            if (hasSelection) {
+                url = '/api/ai/enhance-selection';
+                formData.append('full_text', fullText);
+                formData.append('selected_text', selContent);
+            } else {
+                url = '/api/ai/enhance';
+                formData.append('text', fullText);
+            }
+
+            let result = '';
+            streamAI(url, formData,
+                (token) => {
+                    result += token;
+                    previewText.textContent = result;
+                    previewText.scrollTop = previewText.scrollHeight;
+                },
+                (data) => {
+                    isEnhancing = false;
+                    sendBtn.disabled = false;
+                    result = data.content || result;
+                    previewText.textContent = result;
+                    previewLabel.textContent = hasSelection ? 'Replace selection with:' : 'Replace all with:';
+                    previewActions.classList.add('active');
+                }
+            );
+        }
+
+        sendBtn.addEventListener('click', fireEnhance);
+        aiInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); fireEnhance(); }
+        });
+
+        // ── Accept: replace selection or full text ──
+        acceptBtn.addEventListener('click', () => {
+            const replacement = previewText.textContent;
+            if (selContent) {
+                // Replace just the selected portion
+                const val = dialogTextarea.value;
+                dialogTextarea.value = val.substring(0, selStart) + replacement + val.substring(selEnd);
+                // Move cursor to end of replacement
+                const newEnd = selStart + replacement.length;
+                dialogTextarea.setSelectionRange(newEnd, newEnd);
+                selContent = '';
+                selBadge.classList.remove('active');
+                hint.classList.remove('hidden');
+            } else {
+                dialogTextarea.value = replacement;
+            }
+            previewRow.classList.remove('active');
+            previewActions.classList.remove('active');
+            aiInput.value = '';
+            dialogTextarea.focus();
+            autoResize();
+        });
+
+        discardBtn.addEventListener('click', () => {
+            previewRow.classList.remove('active');
+            previewActions.classList.remove('active');
+            aiInput.value = '';
+            dialogTextarea.focus();
+        });
+
+        // ── Open / Close ──
+        function openDialog(field, label) {
+            sourceField = field;
+            fieldLabel = label;
+            dialogTitle.textContent = label;
+            dialogTextarea.value = field.value;
+            dialogTextarea.classList.toggle('mono', field.classList.contains('font-mono'));
+            // Reset AI state
+            selContent = '';
+            selBadge.classList.remove('active');
+            hint.classList.remove('hidden');
+            previewRow.classList.remove('active');
+            previewActions.classList.remove('active');
+            aiInput.value = '';
+            overlay.classList.add('active');
+            dialogTextarea.focus();
+            autoResize();
+        }
+
+        function closeDialog() {
+            if (isEnhancing) return; // don't close while streaming
+            if (sourceField) {
+                sourceField.value = dialogTextarea.value;
+                sourceField.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            overlay.classList.remove('active');
+            sourceField = null;
+        }
+
+        closeBtn.addEventListener('click', closeDialog);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) closeDialog(); });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && overlay.classList.contains('active')) {
+                if (isEnhancing) return;
+                e.stopPropagation();
+                closeDialog();
+            }
+        });
+
+        // Attach expand buttons to all enhance-wrap fields
+        document.querySelectorAll('.enhance-wrap').forEach(wrap => {
+            const field = wrap.querySelector('textarea, input[type="text"]');
+            const label = wrap.querySelector('label');
+            if (!field) return;
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'expand-trigger';
+            btn.title = 'Expand to fullscreen';
+            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>';
+            wrap.appendChild(btn);
+
+            btn.addEventListener('click', () => {
+                openDialog(field, label ? label.textContent.trim() : 'Edit');
+            });
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        renderAllMarkdown();
+        initEnhanceButtons();
+        initExpandButtons();
+        initAutocomplete();
+    });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
