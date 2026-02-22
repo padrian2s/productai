@@ -4,7 +4,7 @@
 {% block content %}
 <div class="p-8 max-w-6xl mx-auto">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-8">
+    <div class="flex items-center justify-between mb-6">
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
             <p class="text-gray-500 mt-1">Your projects and their plans & PRDs</p>
@@ -15,11 +15,47 @@
         </a>
     </div>
 
+    <!-- Filter Toolbar -->
+    <div class="flex items-center gap-3 mb-6 flex-wrap">
+        <!-- Search -->
+        <div class="relative flex-1 min-w-[200px] max-w-sm">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+            </svg>
+            <input id="dash-search" type="text" placeholder="Search projects, plans, PRDs..."
+                class="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400 transition-colors">
+        </div>
+
+        <!-- Toggle Buttons -->
+        <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+            <button data-filter="project" class="dash-toggle active flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+                Projects
+            </button>
+            <button data-filter="plan" class="dash-toggle active flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                Plans
+            </button>
+            <button data-filter="prd" class="dash-toggle active flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+                PRDs
+            </button>
+        </div>
+    </div>
+
+    <!-- No results message (hidden by default) -->
+    <div id="dash-no-results" class="hidden bg-white rounded-xl border-2 border-dashed border-gray-200 p-8 text-center mb-6">
+        <svg class="w-10 h-10 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <p class="text-gray-500 text-sm">No items match your filters.</p>
+    </div>
+
     <!-- Project Cards -->
     {% if projects %}
-    <div class="space-y-6">
+    <div id="dash-items" class="space-y-6">
         {% for project in projects %}
-        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden dash-card" data-type="project" data-title="{{ project.title | lower }}">
             <!-- Project Header -->
             <div class="p-5 border-b border-gray-100">
                 <div class="flex items-start justify-between">
@@ -77,7 +113,7 @@
             <div class="divide-y divide-gray-50">
                 {% if project.plans %}
                     {% for plan in project.plans %}
-                    <div>
+                    <div class="dash-item" data-type="plan" data-title="{{ plan.title | lower }}">
                         <!-- Plan row -->
                         <a href="{{ base_path }}/plans/{{ plan.id }}" class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/70 transition-colors group">
                             <div class="flex-shrink-0 w-1 h-8 rounded-full
@@ -110,7 +146,7 @@
                         {% if plan.prds %}
                         <div class="ml-8 border-l-2 border-gray-100">
                             {% for prd in plan.prds %}
-                            <a href="{{ base_path }}/prds/{{ prd.id }}" class="flex items-center gap-3 pl-5 pr-5 py-2.5 hover:bg-gray-50/50 transition-colors group">
+                            <a href="{{ base_path }}/prds/{{ prd.id }}" class="flex items-center gap-3 pl-5 pr-5 py-2.5 hover:bg-gray-50/50 transition-colors group dash-item" data-type="prd" data-title="{{ prd.title | lower }}">
                                 <svg class="w-3.5 h-3.5 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                                 </svg>
@@ -135,7 +171,7 @@
                     {% endfor %}
                 {% else %}
                     <!-- No plans yet -->
-                    <div class="px-5 py-4 text-sm text-gray-400 flex items-center gap-2">
+                    <div class="px-5 py-4 text-sm text-gray-400 flex items-center gap-2 dash-item" data-type="plan">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         No plans yet
                         <a href="{{ base_path }}/plans/new" class="text-brand-600 font-medium hover:text-brand-700 ml-1">Add a plan</a>
@@ -147,7 +183,7 @@
     </div>
     {% else %}
     <!-- Empty state -->
-    <div class="bg-white rounded-xl border-2 border-dashed border-gray-200 p-12 text-center">
+    <div id="dash-items" class="bg-white rounded-xl border-2 border-dashed border-gray-200 p-12 text-center">
         <svg class="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
             <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
         </svg>
@@ -162,11 +198,11 @@
 
     <!-- Orphan Plans (not linked to any project) -->
     {% if orphan_plans %}
-    <div class="mt-8">
+    <div class="mt-8 dash-section" data-type="plan">
         <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Unlinked Plans</h2>
         <div class="bg-white rounded-xl border border-gray-200 divide-y divide-gray-50 overflow-hidden">
             {% for plan in orphan_plans %}
-            <div>
+            <div class="dash-item" data-type="plan" data-title="{{ plan.title | lower }}">
                 <a href="{{ base_path }}/plans/{{ plan.id }}" class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/70 transition-colors group">
                     <div class="flex-shrink-0 w-1 h-8 rounded-full
                         {% if plan.status == 'active' %}bg-emerald-400
@@ -193,7 +229,7 @@
                 {% if plan.prds %}
                 <div class="ml-8 border-l-2 border-gray-100">
                     {% for prd in plan.prds %}
-                    <a href="{{ base_path }}/prds/{{ prd.id }}" class="flex items-center gap-3 pl-5 pr-5 py-2.5 hover:bg-gray-50/50 transition-colors group">
+                    <a href="{{ base_path }}/prds/{{ prd.id }}" class="flex items-center gap-3 pl-5 pr-5 py-2.5 hover:bg-gray-50/50 transition-colors group dash-item" data-type="prd" data-title="{{ prd.title | lower }}">
                         <svg class="w-3.5 h-3.5 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                         </svg>
@@ -222,11 +258,11 @@
 
     <!-- Orphan PRDs (not linked to any plan) -->
     {% if orphan_prds %}
-    <div class="mt-6">
+    <div class="mt-6 dash-section" data-type="prd">
         <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Unlinked PRDs</h2>
         <div class="bg-white rounded-xl border border-gray-200 divide-y divide-gray-50 overflow-hidden">
             {% for prd in orphan_prds %}
-            <a href="{{ base_path }}/prds/{{ prd.id }}" class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/50 transition-colors group">
+            <a href="{{ base_path }}/prds/{{ prd.id }}" class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/50 transition-colors group dash-item" data-type="prd" data-title="{{ prd.title | lower }}">
                 <svg class="w-3.5 h-3.5 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                 </svg>
@@ -249,4 +285,126 @@
     </div>
     {% endif %}
 </div>
+
+<style>
+    .dash-toggle {
+        color: #6b7280; background: transparent;
+    }
+    .dash-toggle.active {
+        color: #1e40af; background: #fff;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .dash-toggle:hover:not(.active) { background: rgba(255,255,255,0.5); }
+    .dash-item.filtered-out, .dash-card.filtered-out, .dash-section.filtered-out { display: none; }
+</style>
+
+<script>
+(function() {
+    const search = document.getElementById('dash-search');
+    const toggles = document.querySelectorAll('.dash-toggle');
+    const noResults = document.getElementById('dash-no-results');
+    const cards = document.querySelectorAll('.dash-card');
+    const sections = document.querySelectorAll('.dash-section');
+
+    // Active type filters
+    const active = { project: true, plan: true, prd: true };
+
+    // Toggle buttons
+    toggles.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const type = btn.dataset.filter;
+            active[type] = !active[type];
+            btn.classList.toggle('active', active[type]);
+            applyFilters();
+        });
+    });
+
+    // Search input
+    let debounce;
+    search.addEventListener('input', () => {
+        clearTimeout(debounce);
+        debounce = setTimeout(applyFilters, 150);
+    });
+
+    function applyFilters() {
+        const q = search.value.trim().toLowerCase();
+        let anyVisible = false;
+
+        // Process project cards
+        cards.forEach(card => {
+            const projectTitle = card.dataset.title || '';
+            const projectMatch = !q || projectTitle.includes(q);
+            const projectTypeOn = active.project;
+
+            // Nested plans
+            const plans = card.querySelectorAll('.dash-item[data-type="plan"]');
+            let anyPlanVisible = false;
+            plans.forEach(plan => {
+                const planTitle = plan.dataset.title || '';
+                const planMatch = !q || planTitle.includes(q) || projectTitle.includes(q);
+                const show = active.plan && planMatch;
+                plan.classList.toggle('filtered-out', !show);
+                if (show) anyPlanVisible = true;
+
+                // Nested PRDs inside this plan
+                const prdContainer = plan.querySelector('.border-l-2');
+                if (prdContainer) {
+                    const prds = prdContainer.querySelectorAll('.dash-item[data-type="prd"]');
+                    let anyPrdVisible = false;
+                    prds.forEach(prd => {
+                        const prdTitle = prd.dataset.title || '';
+                        const prdMatch = !q || prdTitle.includes(q) || planTitle.includes(q) || projectTitle.includes(q);
+                        const showPrd = active.prd && prdMatch;
+                        prd.classList.toggle('filtered-out', !showPrd);
+                        if (showPrd) anyPrdVisible = true;
+                    });
+                    if (!anyPrdVisible && !active.prd) {
+                        prdContainer.style.display = 'none';
+                    } else {
+                        prdContainer.style.display = '';
+                    }
+                }
+            });
+
+            // Show project card if: project type on and matches, OR any child is visible
+            const showCard = (projectTypeOn && projectMatch) || anyPlanVisible;
+            card.classList.toggle('filtered-out', !showCard);
+            if (showCard) anyVisible = true;
+
+            // Hide project header if project type is off (but children visible)
+            const header = card.querySelector('.p-5.border-b');
+            if (header) {
+                if (!projectTypeOn && anyPlanVisible) {
+                    header.style.display = 'none';
+                } else if (projectTypeOn && projectMatch) {
+                    header.style.display = '';
+                } else {
+                    header.style.display = '';
+                }
+            }
+        });
+
+        // Orphan sections
+        sections.forEach(sec => {
+            const type = sec.dataset.type;
+            const items = sec.querySelectorAll('.dash-item');
+            let anyItemVisible = false;
+            items.forEach(item => {
+                const title = item.dataset.title || '';
+                const match = !q || title.includes(q);
+                const show = active[type] && match;
+                item.classList.toggle('filtered-out', !show);
+                if (show) anyItemVisible = true;
+            });
+            sec.classList.toggle('filtered-out', !anyItemVisible);
+            if (anyItemVisible) anyVisible = true;
+        });
+
+        // No results
+        if (noResults) {
+            noResults.classList.toggle('hidden', anyVisible || (!cards.length && !sections.length));
+        }
+    }
+})();
+</script>
 {% endblock %}

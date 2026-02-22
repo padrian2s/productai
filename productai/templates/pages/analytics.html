@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block title %}Analytics — PRD Complexity{% endblock %}
+{% block content %}
+<style>
+    .analytics-container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+    .analytics-header { margin-bottom: 2rem; }
+    .analytics-header h1 { font-size: 1.5rem; font-weight: 700; color: #f1f5f9; margin: 0 0 0.25rem; }
+    .analytics-header p { font-size: 0.875rem; color: #94a3b8; margin: 0; }
+    .chart-card {
+        background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+        padding: 1.25rem 1.5rem; margin-bottom: 1rem; transition: border-color 0.2s;
+    }
+    .chart-card:hover { border-color: #60a5fa; }
+    .chart-header {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 0.75rem; gap: 1rem;
+    }
+    .chart-title {
+        font-size: 0.9375rem; font-weight: 600; color: #e2e8f0;
+        text-decoration: none; display: flex; align-items: center; gap: 0.5rem;
+        min-width: 0;
+    }
+    .chart-title:hover { color: #60a5fa; }
+    .chart-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .chart-rank {
+        font-size: 0.75rem; font-weight: 700; color: #475569;
+        background: #0f172a; border-radius: 6px; padding: 2px 8px;
+        flex-shrink: 0;
+    }
+    .chart-meta {
+        display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0;
+    }
+    .chart-total {
+        font-size: 0.75rem; font-weight: 600; color: #94a3b8;
+        font-variant-numeric: tabular-nums;
+    }
+    .chart-status {
+        font-size: 0.625rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.05em; padding: 2px 8px; border-radius: 9999px;
+    }
+    .status-draft { background: #1e3a5f; color: #60a5fa; }
+    .status-review { background: #3b2f1e; color: #fbbf24; }
+    .status-approved { background: #1a3a2a; color: #34d399; }
+    .status-archived { background: #27272a; color: #71717a; }
+    .bar-container {
+        position: relative; height: 32px; border-radius: 6px;
+        background: #0f172a; cursor: pointer;
+    }
+    .bar-segment {
+        position: absolute; top: 0; height: 100%; transition: opacity 0.2s;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.625rem; font-weight: 600; color: rgba(0,0,0,0.7);
+        white-space: nowrap; text-overflow: clip;
+    }
+    .bar-segment:first-child { border-radius: 6px 0 0 6px; }
+    .bar-segment:last-child { border-radius: 0 6px 6px 0; }
+    .bar-segment:hover { opacity: 0.85; z-index: 5; }
+    .bar-tooltip {
+        display: none; position: absolute; bottom: calc(100% + 8px); left: 50%;
+        transform: translateX(-50%); background: #0f172a; border: 1px solid #475569;
+        border-radius: 6px; padding: 6px 10px; font-size: 0.75rem; color: #e2e8f0;
+        white-space: nowrap; z-index: 20; pointer-events: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .bar-tooltip::after {
+        content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+        border: 5px solid transparent; border-top-color: #475569;
+    }
+    .bar-segment:hover .bar-tooltip { display: block; }
+    .legend {
+        display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem;
+        margin-bottom: 1.5rem; padding: 1rem 1.25rem;
+        background: #1e293b; border: 1px solid #334155; border-radius: 10px;
+    }
+    .legend-item {
+        display: flex; align-items: center; gap: 0.375rem;
+        font-size: 0.75rem; color: #94a3b8;
+    }
+    .legend-swatch {
+        width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0;
+    }
+    .empty-state {
+        text-align: center; padding: 4rem 2rem; color: #64748b;
+    }
+    .empty-state svg { margin: 0 auto 1rem; opacity: 0.4; }
+    .empty-state p { font-size: 0.875rem; }
+</style>
+
+<div class="analytics-container">
+    <div class="analytics-header">
+        <h1>PRD Complexity</h1>
+        <p>PRDs ranked by total text size across all fields</p>
+    </div>
+
+    <div id="legend" class="legend" style="display:none;"></div>
+    <div id="charts"></div>
+</div>
+
+<script>
+(function() {
+    const BASE = '{{ base_path }}';
+
+    const FIELD_COLORS = {
+        content:                   '#60a5fa',
+        overview:                  '#34d399',
+        problem_statement:         '#fbbf24',
+        proposed_solution:         '#f472b6',
+        timeline:                  '#a78bfa',
+        user_stories:              '#fb923c',
+        requirements_functional:   '#2dd4bf',
+        requirements_nonfunctional:'#e879f9',
+        success_metrics:           '#f87171',
+    };
+
+    const FIELD_LABELS = {
+        content:                    'Content',
+        overview:                   'Overview',
+        problem_statement:          'Problem Statement',
+        proposed_solution:          'Proposed Solution',
+        timeline:                   'Timeline',
+        user_stories:               'User Stories',
+        requirements_functional:    'Functional Reqs',
+        requirements_nonfunctional: 'Non-Functional Reqs',
+        success_metrics:            'Success Metrics',
+    };
+
+    const STATUS_CLASS = {
+        draft: 'status-draft',
+        review: 'status-review',
+        approved: 'status-approved',
+        archived: 'status-archived',
+    };
+
+    function renderLegend() {
+        const el = document.getElementById('legend');
+        el.style.display = '';
+        el.innerHTML = Object.entries(FIELD_LABELS).map(([key, label]) =>
+            `<div class="legend-item">
+                <div class="legend-swatch" style="background:${FIELD_COLORS[key]}"></div>
+                ${label}
+            </div>`
+        ).join('');
+    }
+
+    function renderChart(prd, rank, maxTotal) {
+        const card = document.createElement('div');
+        card.className = 'chart-card';
+
+        const statusCls = STATUS_CLASS[prd.status] || 'status-draft';
+
+        card.innerHTML = `
+            <div class="chart-header">
+                <a href="${BASE}/prds/${prd.id}" class="chart-title">
+                    <span class="chart-rank">#${rank}</span>
+                    <span>${prd.title}</span>
+                </a>
+                <div class="chart-meta">
+                    <span class="chart-total">${prd.total_size.toLocaleString()} chars</span>
+                    <span class="chart-status ${statusCls}">${prd.status}</span>
+                </div>
+            </div>
+            <div class="bar-container" data-prd-id="${prd.id}"></div>
+        `;
+
+        const bar = card.querySelector('.bar-container');
+        bar.addEventListener('click', () => { window.location.href = `${BASE}/prds/${prd.id}`; });
+
+        const barWidth = maxTotal > 0 ? (prd.total_size / maxTotal) : 0;
+        let offset = 0;
+
+        Object.entries(prd.fields).forEach(([field, size]) => {
+            if (size === 0) return;
+            const pct = (size / maxTotal) * 100;
+            const offsetPct = (offset / maxTotal) * 100;
+
+            const seg = document.createElement('div');
+            seg.className = 'bar-segment';
+            seg.style.left = offsetPct + '%';
+            seg.style.width = pct + '%';
+            seg.style.background = FIELD_COLORS[field] || '#64748b';
+
+            if (pct > 6) {
+                seg.textContent = FIELD_LABELS[field] || field;
+            }
+
+            const tooltip = document.createElement('div');
+            tooltip.className = 'bar-tooltip';
+            tooltip.textContent = `${FIELD_LABELS[field] || field}: ${size.toLocaleString()} chars`;
+            seg.appendChild(tooltip);
+
+            bar.appendChild(seg);
+            offset += size;
+        });
+
+        return card;
+    }
+
+    async function load() {
+        const container = document.getElementById('charts');
+        try {
+            const resp = await fetch(`${BASE}/api/analytics/prd-complexity`);
+            if (!resp.ok) throw new Error('Failed to load data');
+            const data = await resp.json();
+
+            if (!data.length) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <svg class="w-12 h-12" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                            <path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 5-5"/>
+                        </svg>
+                        <p>No PRDs found. Create some PRDs to see complexity analytics.</p>
+                    </div>`;
+                return;
+            }
+
+            const maxTotal = data[0].total_size;
+            renderLegend();
+
+            data.forEach((prd, i) => {
+                container.appendChild(renderChart(prd, i + 1, maxTotal));
+            });
+        } catch (err) {
+            container.innerHTML = `<div class="empty-state"><p>Error loading analytics: ${err.message}</p></div>`;
+        }
+    }
+
+    load();
+})();
+</script>
+{% endblock %}

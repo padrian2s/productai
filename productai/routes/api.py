@@ -269,3 +269,122 @@ async def prd_chat_stream(prd_id: int, request: Request):
         yield f"data: {json.dumps({'done': True})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+# ── Mindmap Data ──────────────────────────────────────
+
+@router.get("/mindmap/data")
+async def mindmap_data():
+    """Return project hierarchy as a mindmap tree structure."""
+    projects = await models.list_projects()
+    all_plans = await models.list_plans()
+    all_prds = await models.list_prds()
+
+    # Index PRDs by plan_id
+    prds_by_plan: dict[int | None, list[dict]] = {}
+    for prd in all_prds:
+        prds_by_plan.setdefault(prd.get("plan_id"), []).append(prd)
+
+    # Index plans by project_id
+    plans_by_project: dict[int | None, list[dict]] = {}
+    for plan in all_plans:
+        plan["prds"] = prds_by_plan.get(plan["id"], [])
+        plans_by_project.setdefault(plan.get("project_id"), []).append(plan)
+
+    def prd_node(prd):
+        return {
+            "name": prd["title"],
+            "description": prd.get("overview") or prd.get("problem_statement") or "",
+            "_type": "prd",
+            "_url": f"{BASE_PATH}/prds/{prd['id']}",
+            "_status": prd.get("status", "draft"),
+        }
+
+    def plan_node(plan):
+        children = [prd_node(p) for p in plan.get("prds", [])]
+        return {
+            "name": plan["title"],
+            "description": plan.get("description") or plan.get("vision") or "",
+            "_type": "plan",
+            "_url": f"{BASE_PATH}/plans/{plan['id']}",
+            "_status": plan.get("status", "active"),
+            "expanded": True,
+            "children": children if children else None,
+        }
+
+    def project_node(project):
+        plans = plans_by_project.get(project["id"], [])
+        children = [plan_node(p) for p in plans]
+        return {
+            "name": project["title"],
+            "description": project.get("description") or "",
+            "_type": "project",
+            "_url": f"{BASE_PATH}/projects/{project['id']}",
+            "_status": project.get("status", "active"),
+            "_priority": project.get("priority"),
+            "expanded": True,
+            "children": children if children else None,
+        }
+
+    root_children = [project_node(p) for p in projects]
+
+    # Orphan plans
+    orphan_plans = plans_by_project.get(None, [])
+    if orphan_plans:
+        root_children.append({
+            "name": "Unlinked Plans",
+            "_type": "section",
+            "expanded": False,
+            "children": [plan_node(p) for p in orphan_plans],
+        })
+
+    # Orphan PRDs
+    orphan_prds = prds_by_plan.get(None, [])
+    if orphan_prds:
+        root_children.append({
+            "name": "Unlinked PRDs",
+            "_type": "section",
+            "expanded": False,
+            "children": [prd_node(p) for p in orphan_prds],
+        })
+
+    return {
+        "name": "ProductAI",
+        "_type": "root",
+        "_url": f"{BASE_PATH}/",
+        "expanded": True,
+        "children": root_children if root_children else None,
+    }
+
+
+# ── Analytics ─────────────────────────────────────────
+
+PRD_TEXT_FIELDS = [
+    "content", "overview", "problem_statement", "proposed_solution",
+    "timeline", "user_stories", "requirements_functional",
+    "requirements_nonfunctional", "success_metrics",
+]
+
+
+@router.get("/analytics/prd-complexity")
+async def prd_complexity():
+    """Return all PRDs with per-field character counts, sorted by total size."""
+    prds = await models.list_prds()
+    result = []
+    for prd in prds:
+        fields = {}
+        total = 0
+        for f in PRD_TEXT_FIELDS:
+            size = len(prd.get(f) or "")
+            fields[f] = size
+            total += size
+        result.append({
+            "id": prd["id"],
+            "title": prd.get("title") or "(Untitled)",
+            "status": prd.get("status") or "draft",
+            "plan_id": prd.get("plan_id"),
+            "total_size": total,
+            "fields": fields,
+        })
+    result.sort(key=lambda x: x["total_size"], reverse=True)
+    return result

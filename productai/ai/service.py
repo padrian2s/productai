@@ -169,8 +169,10 @@ async def stream_enhance_selection(
         f"---\n{full_text}\n---\n\n"
         f"The user has SELECTED the following portion to enhance:\n\n"
         f">>> {selected_text} <<<\n\n"
-        f"Enhance ONLY the selected portion. Return ONLY the replacement text for the selected portion, "
-        f"nothing else. Keep it consistent with the surrounding context."
+        f"CRITICAL: Return ONLY the enhanced replacement for the selected portion above. "
+        f"Do NOT return the full text. Do NOT include any text before or after the selection. "
+        f"Do NOT add explanations, headers, or prefixes. Just output the improved version of the selected text, "
+        f"keeping it consistent with the surrounding context."
     )
     if instruction:
         user_content += f"\n\nAdditional instructions from the user: {instruction}"

@@ -254,7 +254,7 @@
             width: 100%; border: 1px solid #d1d5db; border-radius: 8px 8px 0 0;
             padding: 16px; font-size: 0.9375rem; line-height: 1.7; color: #111827;
             outline: none; resize: none; transition: border-color 0.15s;
-            overflow: hidden; min-height: 200px;
+            overflow-y: auto; min-height: 200px; flex: 1;
         }
         .fullscreen-dialog-body textarea:focus {
             border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
@@ -325,6 +325,17 @@
             border-top-color: #7c3aed; border-radius: 50%;
             animation: spin 0.6s linear infinite;
         }
+        .fs-ai-preview-original {
+            display: none; padding: 8px 12px; background: #fef2f2; border: 1px solid #fecaca;
+            border-radius: 6px; font-size: 0.8125rem; line-height: 1.5;
+            color: #991b1b; white-space: pre-wrap; max-height: 80px; overflow-y: auto;
+            text-decoration: line-through; text-decoration-color: #f87171;
+        }
+        .fs-ai-preview-original.active { display: block; }
+        .fs-ai-preview-original::before {
+            content: 'Original: '; font-weight: 600; text-decoration: none;
+            display: inline; color: #b91c1c;
+        }
         .fs-ai-preview-text {
             padding: 8px 12px; background: #faf5ff; border: 1px solid #ddd6fe;
             border-radius: 6px; font-size: 0.8125rem; line-height: 1.5;
@@ -342,70 +353,117 @@
         .fs-ai-preview-accept:hover { background: #6d28d9; }
         .fs-ai-preview-discard { background: #f3f4f6; color: #374151; }
         .fs-ai-preview-discard:hover { background: #e5e7eb; }
+
+        /* Collapsible sidebar */
+        #sidebar { transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        #sidebar.sidebar-collapsed { width: 3.5rem; }
+        #sidebar.sidebar-collapsed .sidebar-text { display: none; }
+        #sidebar.sidebar-collapsed .sidebar-chevron { transform: rotate(180deg); }
+        #sidebar.sidebar-collapsed .sidebar-label { justify-content: center; }
+        #sidebar.sidebar-collapsed a { justify-content: center; padding-left: 0; padding-right: 0; }
+        #sidebar.sidebar-collapsed > div:first-child { justify-content: center; padding: 0.75rem; }
+        #sidebar.sidebar-collapsed > div:first-child a { gap: 0; }
+        #sidebar.sidebar-collapsed #sidebar-toggle { display: none; }
+        #sidebar.sidebar-collapsed:hover #sidebar-toggle { display: flex; }
     </style>
 </head>
 <body class="h-full bg-gray-50 font-sans text-gray-900">
     <div class="flex h-full">
         <!-- Sidebar -->
-        <nav class="w-64 bg-brand-900 text-white flex flex-col shrink-0">
-            <div class="p-5 border-b border-white/10">
-                <a href="{{ base_path }}/" class="flex items-center gap-2 text-lg font-semibold tracking-tight">
-                    <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <nav id="sidebar" class="bg-brand-900 text-white flex flex-col shrink-0 transition-all duration-300 w-64 sidebar-open">
+            <div class="p-5 border-b border-white/10 flex items-center justify-between">
+                <a href="{{ base_path }}/" class="flex items-center gap-2 text-lg font-semibold tracking-tight sidebar-label">
+                    <svg class="w-7 h-7 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                     </svg>
-                    ProductAI
+                    <span class="sidebar-text">ProductAI</span>
                 </a>
+                <button id="sidebar-toggle" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors text-white/50 hover:text-white shrink-0" title="Toggle sidebar">
+                    <svg class="w-4 h-4 sidebar-chevron transition-transform duration-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M15 19l-7-7 7-7"/>
+                    </svg>
+                </button>
             </div>
-            <div class="flex-1 p-4 space-y-0.5">
-                <a href="{{ base_path }}/" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <div class="flex-1 p-4 space-y-0.5 overflow-y-auto overflow-x-hidden">
+                <a href="{{ base_path }}/" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium" title="Dashboard">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
                         <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
                     </svg>
-                    Dashboard
+                    <span class="sidebar-text">Dashboard</span>
                 </a>
-                <div class="pt-3 pb-1 px-3">
+                <a href="{{ base_path }}/mindmap" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium" title="Mindmap">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/>
+                        <path d="M12 7v4M7.5 17.5L11 13M16.5 17.5L13 13"/><circle cx="12" cy="12" r="1.5"/>
+                    </svg>
+                    <span class="sidebar-text">Mindmap</span>
+                </a>
+                <a href="{{ base_path }}/analytics" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium" title="Analytics">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 5-5"/>
+                    </svg>
+                    <span class="sidebar-text">Analytics</span>
+                </a>
+                <div class="pt-3 pb-1 px-3 sidebar-text">
                     <span class="text-[10px] font-semibold uppercase tracking-widest text-white/30">Hierarchy</span>
                 </div>
-                <a href="{{ base_path }}/projects/new" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <a href="{{ base_path }}/projects/new" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium" title="New Project">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
                     </svg>
-                    New Project
+                    <span class="sidebar-text">New Project</span>
                 </a>
-                <a href="{{ base_path }}/plans/new" class="flex items-center gap-3 pl-7 pr-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium text-white/70">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <a href="{{ base_path }}/plans/new" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium text-white/70" title="New Plan">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                     </svg>
-                    New Plan
+                    <span class="sidebar-text">New Plan</span>
                 </a>
-                <a href="{{ base_path }}/prds/new" class="flex items-center gap-3 pl-11 pr-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium text-white/50">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <a href="{{ base_path }}/prds/new" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium text-white/50" title="New PRD">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
                     </svg>
-                    New PRD
+                    <span class="sidebar-text">New PRD</span>
                 </a>
             </div>
             <div class="p-4 border-t border-white/10 space-y-1">
-                <a href="{{ base_path }}/admin" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <a href="{{ base_path }}/admin" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium" title="Admin">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
                         <circle cx="12" cy="12" r="3"/>
                     </svg>
-                    Admin
+                    <span class="sidebar-text">Admin</span>
                 </a>
-                <div class="text-xs text-white/50 px-3 pt-1">Powered by Claude AI</div>
+                <div class="text-xs text-white/50 px-3 pt-1 sidebar-text">Powered by Claude AI</div>
             </div>
         </nav>
 
         <!-- Main content -->
-        <main class="flex-1 overflow-y-auto">
+        <main class="flex-1 overflow-y-auto relative">
             {% block content %}{% endblock %}
         </main>
     </div>
 
     <script>
     const BASE_PATH = '{{ base_path }}';
+
+    // Sidebar collapse toggle
+    (function() {
+        const sidebar = document.getElementById('sidebar');
+        const toggle = document.getElementById('sidebar-toggle');
+        const key = 'sidebar-collapsed';
+        if (localStorage.getItem(key) === '1') {
+            sidebar.classList.remove('sidebar-open');
+            sidebar.classList.add('sidebar-collapsed');
+        }
+        toggle.addEventListener('click', function() {
+            const collapsed = sidebar.classList.toggle('sidebar-collapsed');
+            sidebar.classList.toggle('sidebar-open', !collapsed);
+            localStorage.setItem(key, collapsed ? '1' : '0');
+            window.dispatchEvent(new Event('resize'));
+        });
+    })();
 
     // Markdown rendering utility
     function renderMarkdown(text) {
@@ -782,10 +840,28 @@
                 }
             });
 
+            // ── Track inline selection state ──
+            let inlineSelStart = 0, inlineSelEnd = 0, inlineSelContent = '';
+
+            function captureInlineSelection() {
+                const s = textarea.selectionStart;
+                const e = textarea.selectionEnd;
+                if (s !== e) {
+                    inlineSelStart = s;
+                    inlineSelEnd = e;
+                    inlineSelContent = textarea.value.substring(s, e);
+                } else {
+                    inlineSelContent = '';
+                }
+            }
+
             // ── Fire the enhance request ──
             function fireEnhance(instruction) {
                 const text = textarea.value.trim();
                 if (!text) return;
+
+                captureInlineSelection();
+                const hasSelection = inlineSelContent.length > 0;
 
                 closeAll();
                 trigger.disabled = true;
@@ -795,13 +871,22 @@
                 actions.classList.remove('active');
 
                 const formData = new FormData();
-                formData.append('text', text);
                 formData.append('field_label', fieldLabel);
                 formData.append('intensity', selectedLevel);
                 if (instruction) formData.append('instruction', instruction);
 
+                let url;
+                if (hasSelection) {
+                    url = BASE_PATH + '/api/ai/enhance-selection';
+                    formData.append('full_text', text);
+                    formData.append('selected_text', inlineSelContent);
+                } else {
+                    url = BASE_PATH + '/api/ai/enhance';
+                    formData.append('text', text);
+                }
+
                 let fullText = '';
-                streamAI(BASE_PATH + '/api/ai/enhance', formData,
+                streamAI(url, formData,
                     (token) => {
                         fullText += token;
                         preview.textContent = fullText;
@@ -824,7 +909,16 @@
 
             // ── Accept / Discard preview ──
             acceptBtn.addEventListener('click', () => {
-                textarea.value = preview.textContent;
+                const replacement = preview.textContent;
+                if (inlineSelContent) {
+                    const val = textarea.value;
+                    textarea.value = val.substring(0, inlineSelStart) + replacement + val.substring(inlineSelEnd);
+                    const newEnd = inlineSelStart + replacement.length;
+                    textarea.setSelectionRange(newEnd, newEnd);
+                    inlineSelContent = '';
+                } else {
+                    textarea.value = replacement;
+                }
                 preview.classList.remove('active');
                 actions.classList.remove('active');
                 textarea.dispatchEvent(new Event('input', { bubbles: true }));
@@ -832,6 +926,7 @@
             discardBtn.addEventListener('click', () => {
                 preview.classList.remove('active');
                 actions.classList.remove('active');
+                inlineSelContent = '';
             });
         });
     }
@@ -876,6 +971,7 @@
                                 <span class="spinner"></span>
                                 <span class="fs-ai-preview-label-text">AI suggestion</span>
                             </div>
+                            <div class="fs-ai-preview-original"></div>
                             <div class="fs-ai-preview-text"></div>
                             <div class="fs-ai-preview-actions">
                                 <button type="button" class="fs-ai-preview-accept">Accept</button>
@@ -899,6 +995,7 @@
         const sendBtn = overlay.querySelector('.fs-ai-send');
         const previewRow = overlay.querySelector('.fs-ai-preview-row');
         const previewLabel = overlay.querySelector('.fs-ai-preview-label-text');
+        const previewOriginal = overlay.querySelector('.fs-ai-preview-original');
         const previewText = overlay.querySelector('.fs-ai-preview-text');
         const previewActions = overlay.querySelector('.fs-ai-preview-actions');
         const acceptBtn = overlay.querySelector('.fs-ai-preview-accept');
@@ -910,12 +1007,10 @@
         let selStart = 0, selEnd = 0, selContent = '';
         let isEnhancing = false;
 
-        // Auto-resize textarea to fit content
-        function autoResize() {
-            dialogTextarea.style.height = 'auto';
-            dialogTextarea.style.height = dialogTextarea.scrollHeight + 'px';
+        // Reset textarea height when opening (flex:1 + overflow-y:auto handles sizing)
+        function resetTextareaHeight() {
+            dialogTextarea.style.height = '';
         }
-        dialogTextarea.addEventListener('input', autoResize);
 
         // ── Level chips ──
         levelChips.forEach(chip => {
@@ -964,6 +1059,15 @@
             previewActions.classList.remove('active');
             previewText.textContent = '';
             previewLabel.textContent = hasSelection ? 'Enhancing selection…' : 'Enhancing all…';
+
+            // Show original text when enhancing a selection
+            if (hasSelection) {
+                previewOriginal.textContent = selContent;
+                previewOriginal.classList.add('active');
+            } else {
+                previewOriginal.textContent = '';
+                previewOriginal.classList.remove('active');
+            }
 
             const formData = new FormData();
             formData.append('field_label', fieldLabel);
@@ -1021,14 +1125,16 @@
             }
             previewRow.classList.remove('active');
             previewActions.classList.remove('active');
+            previewOriginal.classList.remove('active');
             aiInput.value = '';
             dialogTextarea.focus();
-            autoResize();
+            resetTextareaHeight();
         });
 
         discardBtn.addEventListener('click', () => {
             previewRow.classList.remove('active');
             previewActions.classList.remove('active');
+            previewOriginal.classList.remove('active');
             aiInput.value = '';
             dialogTextarea.focus();
         });
@@ -1049,7 +1155,7 @@
             aiInput.value = '';
             overlay.classList.add('active');
             dialogTextarea.focus();
-            autoResize();
+            resetTextareaHeight();
         }
 
         function closeDialog() {

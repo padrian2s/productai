@@ -210,6 +210,26 @@ async def prd_chat_page(request: Request, prd_id: int):
     )
 
 
+# ── Mindmap ────────────────────────────────────────────
+
+@router.get("/mindmap", response_class=HTMLResponse)
+async def mindmap_page(request: Request):
+    return templates.TemplateResponse(
+        "pages/mindmap.html",
+        {"request": request},
+    )
+
+
+# ── Analytics ──────────────────────────────────────────
+
+@router.get("/analytics", response_class=HTMLResponse)
+async def analytics_page(request: Request):
+    return templates.TemplateResponse(
+        "pages/analytics.html",
+        {"request": request},
+    )
+
+
 # ── Admin ──────────────────────────────────────────────
 
 @router.get("/admin", response_class=HTMLResponse)

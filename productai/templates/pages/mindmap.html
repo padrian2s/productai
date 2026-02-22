@@ -1,0 +1,685 @@
+{% extends "base.html" %}
+{% block title %}Mindmap — ProductAI{% endblock %}
+
+{% block content %}
+<div id="mindmap-container" style="overflow:hidden;">
+    <!-- Info Panel -->
+    <div id="info-panel">
+        <div class="panel-header">
+            <div class="panel-title"></div>
+            <button class="panel-close">&times;</button>
+        </div>
+        <div class="panel-badge"></div>
+        <div class="panel-description"></div>
+        <div class="panel-actions"></div>
+        <div class="panel-meta"></div>
+    </div>
+
+    <svg id="mindmap"></svg>
+
+    <!-- Legend -->
+    <div id="mindmap-legend">
+        <div class="legend-item"><span class="legend-dot" style="background:#818cf8;"></span> Root</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#60a5fa;"></span> Project</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#34d399;"></span> Plan</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#fbbf24;"></span> PRD</div>
+        <div class="legend-sep"></div>
+        <div class="legend-item"><span class="legend-status" style="background:#22c55e;"></span> Active</div>
+        <div class="legend-item"><span class="legend-status" style="background:#94a3b8;"></span> Draft</div>
+        <div class="legend-item"><span class="legend-status" style="background:#f59e0b;"></span> Review</div>
+        <div class="legend-item"><span class="legend-status" style="background:#3b82f6;"></span> Completed</div>
+    </div>
+
+    <!-- Keyboard Hint -->
+    <div class="keyboard-hint" id="keyboard-hint">
+        <div><kbd>Arrow Keys</kbd> Navigate</div>
+        <div><kbd>Enter</kbd> Expand/Collapse</div>
+        <div><kbd>Space</kbd> View Details</div>
+        <div><kbd>Click</kbd> Open Page</div>
+        <div><kbd>Esc</kbd> Close Panel</div>
+        <div><kbd>Home</kbd> Go to Root</div>
+        <div><kbd>?</kbd> Toggle Help</div>
+    </div>
+</div>
+
+<style>
+    #mindmap-container { background: #ffffff; }
+    #mindmap { width: 100%; height: 100%; }
+
+    .node-group { cursor: pointer; }
+    .node-rect {
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.08));
+        transition: filter 0.2s ease;
+    }
+    .node-group:hover .node-rect { filter: drop-shadow(0 4px 8px rgba(0,0,0,0.12)); }
+    .node-text {
+        font-size: 14px; font-weight: 500; fill: #1a1a2e;
+        pointer-events: none; user-select: none;
+    }
+    .toggle-circle {
+        fill: #e8eaed; stroke: #dadce0; stroke-width: 1;
+        cursor: pointer; transition: fill 0.2s ease;
+    }
+    .toggle-circle:hover { fill: #d2d5d9; }
+    .toggle-text {
+        font-size: 12px; font-weight: 600; fill: #5f6368;
+        pointer-events: none; user-select: none;
+    }
+    .link { fill: none; stroke: #c4cad4; stroke-width: 2; stroke-linecap: round; }
+
+    /* Node colors by entity type */
+    .node-root { fill: #818cf8; }
+    .node-project { fill: #60a5fa; }
+    .node-plan { fill: #34d399; }
+    .node-prd { fill: #fbbf24; }
+    .node-orphan-section { fill: #a78bfa; }
+
+    /* Type pill colors */
+
+    /* Status dot */
+    .status-dot { stroke: #fff; stroke-width: 1.5; }
+    .status-active, .status-approved { fill: #22c55e; }
+    .status-draft, .status-pending { fill: #94a3b8; }
+    .status-review { fill: #f59e0b; }
+    .status-completed { fill: #3b82f6; }
+    .status-archived, .status-on_hold { fill: #6b7280; }
+
+    .node-rect.selected { stroke: #1a73e8; stroke-width: 3; }
+    .node-rect.focused { stroke: #f59e0b; stroke-width: 3; stroke-dasharray: 6 3; }
+
+    /* Info Panel */
+    #info-panel {
+        position: absolute; top: 24px; left: 24px; width: 320px;
+        max-height: calc(100% - 48px);
+        background: #ffffff; border-radius: 16px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.05);
+        padding: 24px; opacity: 0; transform: translateY(-10px);
+        transition: opacity 0.3s ease, transform 0.3s ease;
+        pointer-events: none; z-index: 1000; overflow-y: auto;
+    }
+    #info-panel.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    #info-panel .panel-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+    #info-panel .panel-title { font-size: 18px; font-weight: 600; color: #1a1a2e; line-height: 1.4; flex: 1; padding-right: 12px; }
+    #info-panel .panel-close {
+        width: 28px; height: 28px; border: none; background: #f1f3f4; border-radius: 50%;
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+        color: #5f6368; font-size: 18px; flex-shrink: 0; transition: background 0.2s ease;
+    }
+    #info-panel .panel-close:hover { background: #e8eaed; }
+    #info-panel .panel-badge {
+        display: inline-block; padding: 4px 12px; border-radius: 12px;
+        font-size: 12px; font-weight: 500; margin-bottom: 12px;
+    }
+    .badge-root { background: #818cf8; color: #fff; }
+    .badge-project { background: #60a5fa; color: #1a1a2e; }
+    .badge-plan { background: #34d399; color: #1a1a2e; }
+    .badge-prd { background: #fbbf24; color: #1a1a2e; }
+    .badge-section { background: #a78bfa; color: #fff; }
+    #info-panel .panel-description { font-size: 14px; line-height: 1.6; color: #5f6368; margin-bottom: 12px; }
+    #info-panel .panel-actions { margin-bottom: 12px; }
+    #info-panel .panel-actions a {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500;
+        background: #2563eb; color: #fff; text-decoration: none;
+        transition: background 0.2s ease;
+    }
+    #info-panel .panel-actions a:hover { background: #1d4ed8; }
+    #info-panel .panel-meta { font-size: 12px; color: #9aa0a6; padding-top: 12px; border-top: 1px solid #f1f3f4; }
+    #info-panel .panel-meta span { display: block; margin-bottom: 4px; }
+
+    /* Legend */
+    #mindmap-legend {
+        position: absolute; bottom: 24px; left: 24px;
+        background: #fff; border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.05);
+        padding: 12px 16px; z-index: 1000;
+        display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+    }
+    .legend-item {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 12px; color: #5f6368; font-weight: 500;
+    }
+    .legend-dot {
+        width: 14px; height: 14px; border-radius: 6px; flex-shrink: 0;
+    }
+    .legend-status {
+        width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+        border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+    }
+    .legend-sep {
+        width: 1px; height: 16px; background: #e5e7eb;
+    }
+
+    .keyboard-hint {
+        position: absolute; bottom: 24px; right: 24px;
+        background: rgba(0,0,0,0.75); color: #fff;
+        padding: 12px 16px; border-radius: 8px; font-size: 12px; line-height: 1.6;
+        opacity: 0; transition: opacity 0.3s ease; pointer-events: none; z-index: 1000;
+    }
+    .keyboard-hint.visible { opacity: 1; }
+    .keyboard-hint kbd {
+        background: rgba(255,255,255,0.2); padding: 2px 6px;
+        border-radius: 4px; margin-right: 4px; font-family: inherit;
+    }
+</style>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+(function() {
+    const BASE = '{{ base_path }}';
+
+    // Fetch mindmap data from API
+    fetch(BASE + '/api/mindmap/data')
+        .then(r => r.json())
+        .then(data => renderMindmap(data))
+        .catch(err => console.error('Failed to load mindmap data:', err));
+
+    function renderMindmap(data) {
+        const container = document.getElementById('mindmap-container');
+        const svg = d3.select("#mindmap");
+
+        // Compute available space (viewport minus sidebar)
+        const sidebar = document.querySelector('nav');
+        const sidebarW = sidebar ? sidebar.offsetWidth : 0;
+        const width = window.innerWidth - sidebarW;
+        const height = window.innerHeight;
+
+        // Size the container and SVG explicitly
+        container.style.width = width + 'px';
+        container.style.height = height + 'px';
+        svg.attr("width", width).attr("height", height);
+        const g = svg.append("g");
+
+        // Zoom
+        const zoom = d3.zoom()
+            .scaleExtent([0.2, 3])
+            .on("zoom", (event) => g.attr("transform", event.transform));
+        svg.call(zoom);
+        svg.call(zoom.transform, d3.zoomIdentity.translate(width / 6, height / 2).scale(0.85));
+
+        // Dimensions
+        const nodeHeight = 44;
+        const nodePadding = 24;
+        const levelGap = 160;
+        const verticalGap = 14;
+        const toggleRadius = 12;
+
+        function getTextWidth(text, fontSize = 14) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.font = `500 ${fontSize}px Inter, Segoe UI, Roboto, sans-serif`;
+            return ctx.measureText(text).width;
+        }
+
+        function getNodeWidth(d) {
+            return getTextWidth(d.data.name) + nodePadding * 2;
+        }
+
+        function getColorClass(d) {
+            const t = d.data._type || '';
+            if (t === 'root') return 'node-root';
+            if (t === 'project') return 'node-project';
+            if (t === 'plan') return 'node-plan';
+            if (t === 'prd') return 'node-prd';
+            return 'node-orphan-section';
+        }
+
+
+        function hasChildren(d) {
+            return d.data.children && d.data.children.length > 0;
+        }
+
+        // Custom layout
+        function computeLayout(root) {
+            function computeSubtreeHeight(node) {
+                if (!node.children || node.children.length === 0) {
+                    node.subtreeHeight = nodeHeight;
+                    return node.subtreeHeight;
+                }
+                let totalHeight = 0;
+                node.children.forEach((child, i) => {
+                    totalHeight += computeSubtreeHeight(child);
+                    if (i < node.children.length - 1) totalHeight += verticalGap;
+                });
+                node.subtreeHeight = totalHeight;
+                return totalHeight;
+            }
+            computeSubtreeHeight(root);
+
+            function assignPositions(node, x, yStart) {
+                node.x = x;
+                if (!node.children || node.children.length === 0) {
+                    node.y = yStart + nodeHeight / 2;
+                    return;
+                }
+                let currentY = yStart;
+                node.children.forEach((child) => {
+                    assignPositions(child, x + getNodeWidth(node) + levelGap, currentY);
+                    currentY += child.subtreeHeight + verticalGap;
+                });
+                const firstChild = node.children[0];
+                const lastChild = node.children[node.children.length - 1];
+                node.y = (firstChild.y + lastChild.y) / 2;
+            }
+            assignPositions(root, 0, -root.subtreeHeight / 2);
+        }
+
+        function buildHierarchy(data) {
+            const root = d3.hierarchy(data, d => d.expanded !== false ? d.children : null);
+            computeLayout(root);
+            return root;
+        }
+
+        function generatePath(source, target) {
+            const sourceWidth = getNodeWidth(source);
+            const startX = source.x + sourceWidth + toggleRadius * 2 + 4;
+            const startY = source.y;
+            const endX = target.x;
+            const endY = target.y;
+            const midX = startX + (endX - startX) * 0.5;
+            return `M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${endY}, ${endX} ${endY}`;
+        }
+
+        function generateCollapsedPath(source) {
+            const sourceWidth = getNodeWidth(source);
+            const x = source.x + sourceWidth + toggleRadius * 2 + 4;
+            const y = source.y;
+            return `M ${x} ${y} C ${x} ${y}, ${x} ${y}, ${x} ${y}`;
+        }
+
+        let previousPositions = new Map();
+        const duration = 500;
+        const easing = d3.easeCubicInOut;
+
+        // Info panel
+        const infoPanel = document.getElementById('info-panel');
+        const panelTitle = infoPanel.querySelector('.panel-title');
+        const panelBadge = infoPanel.querySelector('.panel-badge');
+        const panelDescription = infoPanel.querySelector('.panel-description');
+        const panelActions = infoPanel.querySelector('.panel-actions');
+        const panelMeta = infoPanel.querySelector('.panel-meta');
+        const panelClose = infoPanel.querySelector('.panel-close');
+
+        let selectedNode = null;
+
+        function getBadgeClass(type) {
+            return 'badge-' + (type === 'section' ? 'section' : type);
+        }
+
+        function showInfoPanel(d) {
+            if (selectedNode) g.selectAll('.node-rect').classed('selected', false);
+            selectedNode = d;
+            g.selectAll('.node-group')
+                .filter(node => node === d)
+                .select('.node-rect')
+                .classed('selected', true);
+
+            panelTitle.textContent = d.data.name;
+
+            const t = d.data._type || 'root';
+            panelBadge.textContent = t.charAt(0).toUpperCase() + t.slice(1);
+            panelBadge.className = 'panel-badge ' + getBadgeClass(t);
+
+            panelDescription.textContent = d.data.description || 'No description available.';
+
+            // Navigation link
+            if (d.data._url) {
+                panelActions.innerHTML = `<a href="${d.data._url}">Open ${t} &rarr;</a>`;
+            } else {
+                panelActions.innerHTML = '';
+            }
+
+            // Meta info
+            let meta = '';
+            const path = d.ancestors().reverse().map(n => n.data.name).join(' > ');
+            meta += `<span><strong>Path:</strong> ${path}</span>`;
+            if (d.data._status) meta += `<span><strong>Status:</strong> ${d.data._status}</span>`;
+            if (d.data._priority) meta += `<span><strong>Priority:</strong> ${d.data._priority}</span>`;
+            const childCount = d.data.children ? d.data.children.length : 0;
+            if (childCount > 0) meta += `<span><strong>Children:</strong> ${childCount}</span>`;
+            panelMeta.innerHTML = meta;
+
+            infoPanel.classList.add('visible');
+        }
+
+        function hideInfoPanel() {
+            infoPanel.classList.remove('visible');
+            if (selectedNode) {
+                g.selectAll('.node-rect').classed('selected', false);
+                selectedNode = null;
+            }
+        }
+
+        panelClose.addEventListener('click', hideInfoPanel);
+
+        // Navigate on double-click
+        function onNodeDblClick(event, d) {
+            event.stopPropagation();
+            if (d.data._url) window.location.href = d.data._url;
+        }
+
+        function onNodeClick(event, d) {
+            event.stopPropagation();
+            showInfoPanel(d);
+        }
+
+        svg.on('click', function(event) {
+            if (event.target === this) hideInfoPanel();
+        });
+
+        function toggleNode(event, d) {
+            event.stopPropagation();
+            if (hasChildren(d)) {
+                d.data.expanded = d.data.expanded === false ? true : false;
+                update(d);
+            }
+        }
+
+        let toggleSource = null;
+
+        function update(toggledNode = null) {
+            const root = buildHierarchy(data);
+            const nodes = root.descendants();
+            const links = root.links();
+            const nodeMap = new Map();
+            nodes.forEach(d => nodeMap.set(d.data.name, d));
+
+            function getSourcePosition(d) {
+                if (toggledNode) return { x: toggledNode.x, y: toggledNode.y };
+                if (d.parent) {
+                    const parentKey = d.parent.ancestors().map(n => n.data.name).join('/');
+                    const parentPos = previousPositions.get(parentKey);
+                    if (parentPos) return parentPos;
+                    return { x: d.parent.x, y: d.parent.y };
+                }
+                return { x: d.x, y: d.y };
+            }
+
+            function getCollapsePosition(d) {
+                const sourceNode = nodeMap.get(d.source.data.name);
+                if (sourceNode) return sourceNode;
+                if (toggledNode) return toggledNode;
+                const prevPos = previousPositions.get(d.source.data.name);
+                if (prevPos) return { x: prevPos.x, y: prevPos.y, data: d.source.data };
+                return d.source;
+            }
+
+            function getLinkKey(d) {
+                const sp = d.source.ancestors().map(n => n.data.name).join('/');
+                const tp = d.target.ancestors().map(n => n.data.name).join('/');
+                return sp + '->' + tp;
+            }
+
+            function getNodeKey(d) {
+                return d.ancestors().map(n => n.data.name).join('/');
+            }
+
+            g.selectAll(".link").interrupt();
+            g.selectAll(".node-group").interrupt();
+
+            // Links
+            const link = g.selectAll(".link").data(links, getLinkKey);
+
+            link.exit()
+                .each(function(d) { d.collapseTarget = getCollapsePosition(d); })
+                .transition().duration(duration).ease(easing)
+                .attr("d", function(d) {
+                    const target = d.collapseTarget;
+                    const sw = getTextWidth(target.data.name) + nodePadding * 2;
+                    const x = target.x + sw + toggleRadius * 2 + 4;
+                    const y = target.y;
+                    return `M ${x} ${y} C ${x} ${y}, ${x} ${y}, ${x} ${y}`;
+                })
+                .attr("opacity", 0).remove();
+
+            const linkEnter = link.enter().append("path")
+                .attr("class", "link").attr("opacity", 0)
+                .attr("d", d => generateCollapsedPath(d.source));
+
+            link.merge(linkEnter)
+                .transition().duration(duration).ease(easing)
+                .attr("d", d => generatePath(d.source, d.target))
+                .attr("opacity", 1);
+
+            // Nodes
+            const node = g.selectAll(".node-group").data(nodes, getNodeKey);
+
+            node.exit()
+                .each(function(d) { d.sourcePosition = getSourcePosition(d); })
+                .transition().duration(duration).ease(easing)
+                .attr("transform", d => `translate(${d.sourcePosition.x}, ${d.sourcePosition.y})`)
+                .attr("opacity", 0)
+                .on("end", function() { d3.select(this).remove(); });
+
+            const nodeEnter = node.enter().append("g")
+                .attr("class", "node-group").attr("opacity", 0)
+                .attr("transform", d => {
+                    const s = getSourcePosition(d);
+                    return `translate(${s.x}, ${s.y})`;
+                });
+
+            // Node rect
+            nodeEnter.append("rect")
+                .attr("class", d => `node-rect ${getColorClass(d)}`)
+                .attr("x", 0).attr("y", -nodeHeight / 2)
+                .attr("width", d => getNodeWidth(d))
+                .attr("height", nodeHeight)
+                .attr("rx", 22).attr("ry", 22)
+                .on("click", onNodeClick)
+                .on("dblclick", onNodeDblClick);
+
+            // Status dot
+            nodeEnter.filter(d => d.data._status)
+                .append("circle")
+                .attr("class", d => `status-dot status-${d.data._status}`)
+                .attr("cx", 16).attr("cy", -nodeHeight / 2 + 10)
+                .attr("r", 4);
+
+            // Node text
+            nodeEnter.append("text")
+                .attr("class", "node-text")
+                .attr("x", d => getNodeWidth(d) / 2)
+                .attr("y", 0).attr("dy", "0.35em")
+                .attr("text-anchor", "middle")
+                .text(d => d.data.name);
+
+            // Toggle button
+            const toggleGroup = nodeEnter.filter(d => hasChildren(d))
+                .append("g").attr("class", "toggle-group")
+                .attr("transform", d => `translate(${getNodeWidth(d) + toggleRadius + 4}, 0)`)
+                .on("click", toggleNode);
+
+            toggleGroup.append("circle")
+                .attr("class", "toggle-circle").attr("r", toggleRadius);
+
+            toggleGroup.append("text")
+                .attr("class", "toggle-text")
+                .attr("text-anchor", "middle").attr("dy", "0.35em")
+                .text(d => d.data.expanded === false ? "+" : "\u2212");
+
+            // Update
+            const nodeUpdate = node.merge(nodeEnter);
+            nodeUpdate.transition().duration(duration).ease(easing)
+                .attr("opacity", 1)
+                .attr("transform", d => `translate(${d.x}, ${d.y})`);
+
+            nodeUpdate.select(".toggle-text")
+                .text(d => d.data.expanded === false ? "+" : "\u2212");
+
+            nodeUpdate.select(".node-rect")
+                .attr("class", d => `node-rect ${getColorClass(d)}`);
+
+            previousPositions = new Map();
+            nodes.forEach(d => {
+                const key = d.ancestors().map(n => n.data.name).join('/');
+                previousPositions.set(key, { x: d.x, y: d.y, name: d.data.name });
+            });
+        }
+
+        // Initial render
+        update();
+
+        // Resize
+        window.addEventListener("resize", () => {
+            const sw = sidebar ? sidebar.offsetWidth : 0;
+            const w = window.innerWidth - sw;
+            const h = window.innerHeight;
+            container.style.width = w + 'px';
+            container.style.height = h + 'px';
+            svg.attr("width", w).attr("height", h);
+        });
+
+        // Keyboard navigation
+        let focusedNode = null;
+        const keyboardHint = document.getElementById('keyboard-hint');
+
+        function getVisibleNodes() {
+            return buildHierarchy(data).descendants();
+        }
+
+        function updateFocusVisual() {
+            g.selectAll('.node-rect').classed('focused', false);
+            if (focusedNode) {
+                g.selectAll('.node-group')
+                    .filter(node => node.data === focusedNode.data)
+                    .select('.node-rect')
+                    .classed('focused', true);
+            }
+        }
+
+        function panToNode(node) {
+            const transform = d3.zoomTransform(svg.node());
+            const nw = getNodeWidth(node);
+            const tx = width / 2 - (node.x + nw / 2) * transform.k;
+            const ty = height / 2 - node.y * transform.k;
+            svg.transition().duration(300)
+                .call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(transform.k));
+        }
+
+        function focusNode(node) {
+            focusedNode = node;
+            updateFocusVisual();
+            panToNode(node);
+        }
+
+        function findNodeInDirection(currentNode, direction) {
+            const nodes = getVisibleNodes();
+            const current = nodes.find(n => n.data === currentNode.data);
+            if (!current) return null;
+            switch (direction) {
+                case 'right':
+                    if (current.children && current.children.length > 0) return current.children[0];
+                    return null;
+                case 'left':
+                    return current.parent || null;
+                case 'down':
+                    if (current.parent) {
+                        const siblings = current.parent.children;
+                        const idx = siblings.indexOf(current);
+                        if (idx < siblings.length - 1) return siblings[idx + 1];
+                    }
+                    return null;
+                case 'up':
+                    if (current.parent) {
+                        const siblings = current.parent.children;
+                        const idx = siblings.indexOf(current);
+                        if (idx > 0) return siblings[idx - 1];
+                    }
+                    return null;
+            }
+            return null;
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+            // Only handle when mindmap page is visible
+            if (!document.getElementById('mindmap-container')) return;
+
+            const nodes = getVisibleNodes();
+            switch (event.key) {
+                case '?':
+                    event.preventDefault();
+                    keyboardHint.classList.toggle('visible');
+                    break;
+                case 'Escape':
+                    event.preventDefault();
+                    hideInfoPanel();
+                    keyboardHint.classList.remove('visible');
+                    break;
+                case 'Home':
+                    event.preventDefault();
+                    focusNode(nodes[0]);
+                    break;
+                case 'ArrowRight':
+                    event.preventDefault();
+                    if (!focusedNode) { focusNode(nodes[0]); break; }
+                    {
+                        const current = nodes.find(n => n.data === focusedNode.data);
+                        if (current && hasChildren(current) && current.data.expanded === false) {
+                            current.data.expanded = true;
+                            update(current);
+                            setTimeout(() => {
+                                const nn = getVisibleNodes();
+                                const u = nn.find(n => n.data === focusedNode.data);
+                                if (u && u.children) focusNode(u.children[0]);
+                            }, 100);
+                        } else {
+                            const next = findNodeInDirection(focusedNode, 'right');
+                            if (next) focusNode(next);
+                        }
+                    }
+                    break;
+                case 'ArrowLeft':
+                    event.preventDefault();
+                    if (!focusedNode) focusNode(nodes[0]);
+                    else { const n = findNodeInDirection(focusedNode, 'left'); if (n) focusNode(n); }
+                    break;
+                case 'ArrowDown':
+                    event.preventDefault();
+                    if (!focusedNode) focusNode(nodes[0]);
+                    else { const n = findNodeInDirection(focusedNode, 'down'); if (n) focusNode(n); }
+                    break;
+                case 'ArrowUp':
+                    event.preventDefault();
+                    if (!focusedNode) focusNode(nodes[0]);
+                    else { const n = findNodeInDirection(focusedNode, 'up'); if (n) focusNode(n); }
+                    break;
+                case 'Enter':
+                    event.preventDefault();
+                    if (focusedNode) {
+                        // If panel is showing, navigate to URL
+                        if (selectedNode && selectedNode.data === focusedNode.data && focusedNode.data._url) {
+                            window.location.href = focusedNode.data._url;
+                        } else {
+                            const c = nodes.find(n => n.data === focusedNode.data);
+                            if (c && hasChildren(c)) {
+                                c.data.expanded = c.data.expanded === false ? true : false;
+                                update(c);
+                                setTimeout(() => {
+                                    const nn = getVisibleNodes();
+                                    const u = nn.find(n => n.data === focusedNode.data);
+                                    if (u) { focusedNode = u; updateFocusVisual(); }
+                                }, 100);
+                            }
+                        }
+                    }
+                    break;
+                case ' ':
+                    event.preventDefault();
+                    if (focusedNode) {
+                        const c = nodes.find(n => n.data === focusedNode.data);
+                        if (c) showInfoPanel(c);
+                    }
+                    break;
+            }
+        });
+
+        // Show hint briefly
+        setTimeout(() => {
+            keyboardHint.classList.add('visible');
+            setTimeout(() => keyboardHint.classList.remove('visible'), 3000);
+        }, 800);
+    }
+})();
+</script>
+{% endblock %}
